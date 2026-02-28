@@ -1,6 +1,6 @@
 # Unity Visual Scripting Skill
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that enables AI-assisted generation of Unity Visual Scripting graphs through C# editor scripts.
+A Claude Code skill that enables AI-assisted generation of Unity Visual Scripting graphs through C# editor scripts.
 
 ## What This Does
 
