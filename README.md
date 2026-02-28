@@ -2,6 +2,9 @@
 
 A Claude Code skill that enables AI-assisted generation of Unity Visual Scripting graphs through C# editor scripts.
 
+<img width="1769" height="1091" alt="VisualScripting" src="https://github.com/user-attachments/assets/ff22d3dd-ded3-45ec-9095-9f5e2343df5f" />
+
+
 ## What This Does
 
 When installed as a Claude Code skill, it allows Claude to:
