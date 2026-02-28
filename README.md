@@ -1,4 +1,4 @@
-# Unity Visual Scripting Skill
+# Unity Visual Scripting Agent Skill
 
 A Claude Code skill that enables AI-assisted generation of Unity Visual Scripting graphs through C# editor scripts.
 
