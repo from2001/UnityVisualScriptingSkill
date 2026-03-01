@@ -14,6 +14,10 @@ When installed as a Claude Code skill, it allows Claude to:
 - **Assign graphs to GameObjects** via `ScriptMachine` / `StateMachine` components
 - **Wire nodes** with proper control flow and data connections
 
+## Installation
+
+Just copy `.claude` directory of this repository into your project.
+
 ## Usage
 
 Once installed, Claude Code will automatically activate the skill when you mention keywords like "visual scripting", "script graph", "state graph", "flow graph", or "ScriptMachine".
