@@ -99,10 +99,11 @@ For `StateMachine`, use `StateGraphAsset` and `StateMachine` instead.
 | Event | `new Start()`, `new Update()` | `trigger` (ControlOutput) |
 | GetMember | `new GetMember(new Member(type, name))` | `value` (out), `target` (in, instance only) |
 | SetMember | `new SetMember(new Member(type, name))` | `assign`/`assigned` (control), `input`/`output` (value) |
-| InvokeMember | `new InvokeMember(new Member(type, name, paramTypes[]))` | `enter`/`exit` (control), `inputParameters[n]`/`result` (value) |
+| InvokeMember | `new InvokeMember(new Member(type, name, paramTypes[]))` | `enter`/`exit` (control), `%paramName` (value in), `result` (non-void only) |
 | Literal | `new Literal(typeof(T), value)` | `output` (ValueOutput) |
-| ScalarSum | `new ScalarSum()` | `multiInputs[0]`, `multiInputs[1]` (in), `sum` (out) — extends `MultiInputUnit<float>` |
+| ScalarSum | `new ScalarSum()` | `0`, `1` (value in, port keys), `sum` (out) — C# accessor: `multiInputs[0]`. Set `inputCount` for more inputs |
 | ScalarMultiply | `new ScalarMultiply()` | `a`, `b` (in), `product` (out) |
+| Sequence | `new Sequence()` | `enter` (ctrl in), `0`/`1`/... (ctrl out) — C# accessor: `multiOutputs[n]`. Set `outputCount` |
 | If | `new If()` | `enter` (control in), `condition` (value in), `ifTrue`/`ifFalse` (control out) |
 | GetVariable | `new GetVariable() { kind }` (set `defaultValues["name"]` after Add) | `value` (out) |
 | SetVariable | `new SetVariable() { kind }` (set `defaultValues["name"]` after Add) | `assign`/`assigned` (control), `input`/`output` (value) |
@@ -145,8 +146,11 @@ Set `unit.position` AFTER `graph.units.Add(unit)`. Recommended spacing: ~250px h
 - Always call `AssetDatabase.SaveAssets()` after creating/modifying assets
 - For instance methods (e.g., `Transform.Rotate`), the `target` port auto-resolves to the owning GameObject's component when unconnected
 - Variable units (`GetVariable`/`SetVariable`/`IsVariableDefined`) have NO `defaultName` property — set `kind` before `graph.units.Add()`, then set `defaultValues["name"]` after Add
-- `ScalarSum` and `GenericSum` extend `MultiInputUnit<T>` — their input ports are `multiInputs[0]`, `multiInputs[1]` (NOT `a`, `b`). Output is `sum`. Other binary math units (`ScalarMultiply`, `ScalarSubtract`, etc.) still use `a`/`b`
-- `InvokeMember.targetOutput` is null for void instance methods — always null-check before wiring it
+- `ScalarSum` and `GenericSum` extend `MultiInputUnit<T>` — port keys are `"0"`, `"1"`, etc. C# accessor: `multiInputs[0]`, `multiInputs[1]` (NOT `a`, `b`). Output is `sum`. Other binary math units (`ScalarMultiply`, `ScalarSubtract`, etc.) still use `a`/`b`
+- **Static vs instance members**: Static members (e.g., `Time.deltaTime`, `Debug.Log`, `Input.GetKey`) have no `target` port. Instance members (e.g., `Transform.position`, `Transform.Rotate`) have a `target` port that auto-resolves to the owning GameObject's component when unconnected
+- **`%paramName` convention**: `InvokeMember` parameter port keys use `"%paramName"` format (e.g., `"%x"`, `"%y"`, `"%z"` for `Rotate`). C# accessor: `inputParameters[n]`
+- **Void methods**: Void methods (e.g., `SetActive`, `Rotate`, `Play`) have no `result` port. `InvokeMember.targetOutput` is null for void instance methods — always null-check before wiring it
+- **Comparison unit output — port key ≠ C# property**: ALL `BinaryComparisonUnit` subclasses (`Equal`, `NotEqual`, `Greater`, `Less`, `GreaterOrEqual`, `LessOrEqual`) expose their output via the C# property **`comparison`**. `Equal` and `NotEqual` override the port key string to `"equal"` / `"notEqual"` for backward compat, but the C# accessor is still `comparison`. Use `equal.comparison` (NOT ~~`equal.equal`~~) — the latter causes CS1061
 
 ## Unit Verification Protocol (MANDATORY for undocumented units)
 

@@ -315,7 +315,7 @@ var getVar = new GetVariable() { kind = VariableKind.Graph };
 graph.units.Add(getVar);
 getVar.defaultValues["name"] = "counter";
 
-var addOne = new ScalarAdd();
+var addOne = new ScalarSum();
 graph.units.Add(addOne);
 
 var one = new Literal(typeof(int), 1);
@@ -325,8 +325,8 @@ var setVar = new SetVariable() { kind = VariableKind.Graph };
 graph.units.Add(setVar);
 setVar.defaultValues["name"] = "counter";
 
-graph.valueConnections.Add(new ValueConnection(getVar.value, addOne.a));
-graph.valueConnections.Add(new ValueConnection(one.output, addOne.b));
+graph.valueConnections.Add(new ValueConnection(getVar.value, addOne.multiInputs[0]));
+graph.valueConnections.Add(new ValueConnection(one.output, addOne.multiInputs[1]));
 graph.valueConnections.Add(new ValueConnection(addOne.sum, setVar.input));
 // Wire control: trigger -> setVar.assign
 ```
