@@ -1,5 +1,6 @@
 
 .DS_Store
+nanobanana-output/*
 
 # RoslynValidator build artifacts
 .claude/skills/unity-visual-scripting/tools/RoslynValidator/bin/
