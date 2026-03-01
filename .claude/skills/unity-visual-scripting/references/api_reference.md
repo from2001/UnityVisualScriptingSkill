@@ -98,7 +98,7 @@ All classes in `Unity.VisualScripting` namespace. The `$type` column shows the J
 | `OnTriggerEnter2D` | `Unity.VisualScripting.OnTriggerEnter2D` | `trigger` | `collider` | `coroutine`, `defaultValues: {"target": null}` |
 | `OnCollisionEnter2D` | `Unity.VisualScripting.OnCollisionEnter2D` | `trigger` | `collider` | `coroutine`, `defaultValues: {"target": null}` |
 | `OnKeyboardInput` | `Unity.VisualScripting.OnKeyboardInput` | `trigger` | — | `coroutine`, `key` (KeyCode int), `action` (PressState int) |
-| `CustomEvent` | `Unity.VisualScripting.CustomEvent` | `trigger` | `arg_0`..`arg_N` | `coroutine`, `argumentCount` |
+| `CustomEvent` | `Unity.VisualScripting.CustomEvent` | `trigger` | `argument_0`..`argument_N` | `coroutine`, `argumentCount` |
 
 ### Member Access Units
 
@@ -175,8 +175,8 @@ Variable name set in `defaultValues.name`: `{"$content": "varName", "$type": "Sy
 | `And` | `Unity.VisualScripting.And` | `a`, `b` | `result` |
 | `Or` | `Unity.VisualScripting.Or` | `a`, `b` | `result` |
 | `Negate` | `Unity.VisualScripting.Negate` | `input` | `output` |
-| `Equal` | `Unity.VisualScripting.Equal` | `a`, `b` | `comparison` |
-| `NotEqual` | `Unity.VisualScripting.NotEqual` | `a`, `b` | `comparison` |
+| `Equal` | `Unity.VisualScripting.Equal` | `a`, `b` | `equal` |
+| `NotEqual` | `Unity.VisualScripting.NotEqual` | `a`, `b` | `notEqual` |
 | `Greater` | `Unity.VisualScripting.Greater` | `a`, `b` | `comparison` |
 | `Less` | `Unity.VisualScripting.Less` | `a`, `b` | `comparison` |
 | `GreaterOrEqual` | `Unity.VisualScripting.GreaterOrEqual` | `a`, `b` | `comparison` |
