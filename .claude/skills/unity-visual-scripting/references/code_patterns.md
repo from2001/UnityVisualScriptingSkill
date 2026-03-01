@@ -1,652 +1,1143 @@
-# Unity Visual Scripting - Code Pattern Templates
+# Unity Visual Scripting - JSON Graph Patterns
 
-Complete working C# editor script patterns. All patterns require:
+Complete `.asset` file patterns for generating Unity Visual Scripting graphs directly. Each pattern shows the JSON `elements` array content (units + connections).
 
-```csharp
-#if UNITY_EDITOR
-using UnityEditor;
-using UnityEngine;
-using Unity.VisualScripting;
-#endif
+## YAML Boilerplate Template
+
+Every `.asset` file uses this exact template. Replace `GRAPH_NAME` and `JSON_CONTENT`:
+
+```yaml
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e66c6366d904e98bc83428217d4fd7, type: 3}
+  m_Name: GRAPH_NAME
+  m_EditorClassIdentifier:
+  _data:
+    _json: 'JSON_CONTENT'
+    _objectReferences: []
 ```
+
+**Rules:**
+- `m_Script` guid `95e66c6366d904e98bc83428217d4fd7` = `ScriptGraphAsset` (never changes)
+- `JSON_CONTENT` is the entire graph JSON on a **single line**, wrapped in YAML single quotes
+- Single quotes inside JSON string values must be escaped as `''` (YAML 1.1 rule)
+- `m_Name` should match the filename (without `.asset`)
+
+## JSON Root Structure
+
+```json
+{"graph":{"variables":{"Kind":"Flow","collection":{"$content":[],"$version":"A"},"$version":"A"},"controlInputDefinitions":[],"controlOutputDefinitions":[],"valueInputDefinitions":[],"valueOutputDefinitions":[],"title":null,"summary":null,"pan":{"x":0.0,"y":0.0},"zoom":1.0,"elements":[...],"$version":"A"}}
+```
+
+The `elements` array contains ALL units and connections in a flat list. Units come first, connections after.
 
 ## Table of Contents
 
-1. [Full Graph Creation + Assignment](#1-full-graph-creation--assignment)
-2. [Event Handling](#2-event-handling)
-3. [Input Handling](#3-input-handling)
-4. [Transform Manipulation](#4-transform-manipulation)
-5. [Physics](#5-physics)
-6. [Variables](#6-variables)
-7. [Flow Control](#7-flow-control)
-8. [Component Access](#8-component-access)
-9. [Coroutine-Like Patterns](#9-coroutine-like-patterns)
-10. [UI Interactions](#10-ui-interactions)
-11. [Animation](#11-animation)
-12. [Audio](#12-audio)
-13. [Debug Logging](#13-debug-logging)
-14. [Graph Assignment](#14-graph-assignment)
+1. [Start to Debug.Log (simplest)](#1-start-to-debuglog)
+2. [Update to Rotation (full working example)](#2-update-to-rotation)
+3. [OnTriggerEnter to Action](#3-ontriggerenter-to-action)
+4. [Get/Set Variable and Increment](#4-getset-variable-and-increment)
+5. [If/Else Branch](#5-ifelse-branch)
+6. [Sequence (fan-out)](#6-sequence-fan-out)
+7. [InvokeMember Patterns](#7-invokemember-patterns)
+8. [GetMember / SetMember](#8-getmember--setmember)
+9. [Literal Value Types](#9-literal-value-types)
 
 ---
 
-## 1. Full Graph Creation + Assignment
+## 1. Start to Debug.Log
 
-### Rotation Graph (proven working example)
+The simplest possible graph: Start event fires Debug.Log with a string literal.
 
-```csharp
-public static class CreateRotateGraph
+### Elements
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "a1b2c3d4-e5f6-4a7b-8c9d-000000000001",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Start",
+    "$id": "1"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 300.0, "y": 0.0},
+    "guid": "a1b2c3d4-e5f6-4a7b-8c9d-000000000002",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "2"
+  },
+  {
+    "type": "System.String",
+    "value": {"$content": "Game Started!", "$type": "System.String"},
+    "defaultValues": {},
+    "position": {"x": 100.0, "y": 150.0},
+    "guid": "a1b2c3d4-e5f6-4a7b-8c9d-000000000003",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "3"
+  },
+  {
+    "sourceUnit": {"$ref": "1"},
+    "sourceKey": "trigger",
+    "destinationUnit": {"$ref": "2"},
+    "destinationKey": "enter",
+    "guid": "a1b2c3d4-e5f6-4a7b-8c9d-000000000004",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "3"},
+    "sourceKey": "output",
+    "destinationUnit": {"$ref": "2"},
+    "destinationKey": "%message",
+    "guid": "a1b2c3d4-e5f6-4a7b-8c9d-000000000005",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  }
+]
+```
+
+**Key observations:**
+- Start event: `coroutine: false`, `defaultValues: {}`
+- Debug.Log (static): no `target` in defaultValues, `parameterNames: ["message"]`
+- InvokeMember parameter port key: `%message` (prefixed with `%`)
+- Literal `output` port key: `"output"`
+- Connections reference units by `$ref` matching the unit's `$id`
+
+---
+
+## 2. Update to Rotation
+
+Full working graph: Update every frame → multiply speeds by deltaTime → Transform.Rotate.
+
+### Elements
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": -300.0, "y": 0.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000001",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Update",
+    "$id": "1"
+  },
+  {
+    "member": {
+      "name": "deltaTime",
+      "parameterTypes": null,
+      "targetType": "UnityEngine.Time",
+      "targetTypeName": "UnityEngine.Time",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": -500.0, "y": 200.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000002",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.GetMember",
+    "$id": "2"
+  },
+  {
+    "type": "System.Single",
+    "value": {"$content": 10.0, "$type": "System.Single"},
+    "defaultValues": {},
+    "position": {"x": -500.0, "y": 100.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000003",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "3"
+  },
+  {
+    "type": "System.Single",
+    "value": {"$content": 20.0, "$type": "System.Single"},
+    "defaultValues": {},
+    "position": {"x": -500.0, "y": 300.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000004",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "4"
+  },
+  {
+    "type": "System.Single",
+    "value": {"$content": 5.0, "$type": "System.Single"},
+    "defaultValues": {},
+    "position": {"x": -500.0, "y": 400.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000005",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "5"
+  },
+  {
+    "defaultValues": {
+      "a": {"$content": 0.0, "$type": "System.Single"},
+      "b": {"$content": 0.0, "$type": "System.Single"}
+    },
+    "position": {"x": -200.0, "y": 100.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000006",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.ScalarMultiply",
+    "$id": "6"
+  },
+  {
+    "defaultValues": {
+      "a": {"$content": 0.0, "$type": "System.Single"},
+      "b": {"$content": 0.0, "$type": "System.Single"}
+    },
+    "position": {"x": -200.0, "y": 300.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000007",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.ScalarMultiply",
+    "$id": "7"
+  },
+  {
+    "defaultValues": {
+      "a": {"$content": 0.0, "$type": "System.Single"},
+      "b": {"$content": 0.0, "$type": "System.Single"}
+    },
+    "position": {"x": -200.0, "y": 400.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000008",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.ScalarMultiply",
+    "$id": "8"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["xAngle", "yAngle", "zAngle"],
+    "member": {
+      "name": "Rotate",
+      "parameterTypes": ["System.Single", "System.Single", "System.Single"],
+      "targetType": "UnityEngine.Transform",
+      "targetTypeName": "UnityEngine.Transform",
+      "$version": "A"
+    },
+    "defaultValues": {
+      "target": null,
+      "%xAngle": {"$content": 0.0, "$type": "System.Single"},
+      "%yAngle": {"$content": 0.0, "$type": "System.Single"},
+      "%zAngle": {"$content": 0.0, "$type": "System.Single"}
+    },
+    "position": {"x": 150.0, "y": 0.0},
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000009",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "9"
+  },
+  {
+    "sourceUnit": {"$ref": "1"},
+    "sourceKey": "trigger",
+    "destinationUnit": {"$ref": "9"},
+    "destinationKey": "enter",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000010",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "3"},
+    "sourceKey": "output",
+    "destinationUnit": {"$ref": "6"},
+    "destinationKey": "a",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000011",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "value",
+    "destinationUnit": {"$ref": "6"},
+    "destinationKey": "b",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000012",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "4"},
+    "sourceKey": "output",
+    "destinationUnit": {"$ref": "7"},
+    "destinationKey": "a",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000013",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "value",
+    "destinationUnit": {"$ref": "7"},
+    "destinationKey": "b",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000014",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "5"},
+    "sourceKey": "output",
+    "destinationUnit": {"$ref": "8"},
+    "destinationKey": "a",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000015",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "value",
+    "destinationUnit": {"$ref": "8"},
+    "destinationKey": "b",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000016",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "6"},
+    "sourceKey": "product",
+    "destinationUnit": {"$ref": "9"},
+    "destinationKey": "%xAngle",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000017",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "7"},
+    "sourceKey": "product",
+    "destinationUnit": {"$ref": "9"},
+    "destinationKey": "%yAngle",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000018",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "8"},
+    "sourceKey": "product",
+    "destinationUnit": {"$ref": "9"},
+    "destinationKey": "%zAngle",
+    "guid": "b2c3d4e5-f6a7-4b8c-9d0e-000000000019",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  }
+]
+```
+
+**Key observations:**
+- `Update` event: same shape as `Start` — `coroutine: false`, `defaultValues: {}`
+- `GetMember` for static property (Time.deltaTime): `parameterTypes: null`, `defaultValues: {}`
+- `ScalarMultiply`: ports `a`, `b` (input), `product` (output)
+- `InvokeMember` for instance method: `"target": null` in defaultValues (auto-resolves to attached Transform)
+- Parameter port keys: `%xAngle`, `%yAngle`, `%zAngle` (matching `parameterNames`)
+
+---
+
+## 3. OnTriggerEnter to Action
+
+OnTriggerEnter → Debug.Log with the collider name.
+
+### Elements
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {"target": null},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "c3d4e5f6-a7b8-4c9d-0e1f-000000000001",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.OnTriggerEnter",
+    "$id": "1"
+  },
+  {
+    "member": {
+      "name": "gameObject",
+      "parameterTypes": null,
+      "targetType": "UnityEngine.Collider",
+      "targetTypeName": "UnityEngine.Collider",
+      "$version": "A"
+    },
+    "defaultValues": {"target": null},
+    "position": {"x": 0.0, "y": 200.0},
+    "guid": "c3d4e5f6-a7b8-4c9d-0e1f-000000000002",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.GetMember",
+    "$id": "2"
+  },
+  {
+    "member": {
+      "name": "name",
+      "parameterTypes": null,
+      "targetType": "UnityEngine.GameObject",
+      "targetTypeName": "UnityEngine.GameObject",
+      "$version": "A"
+    },
+    "defaultValues": {"target": null},
+    "position": {"x": 250.0, "y": 200.0},
+    "guid": "c3d4e5f6-a7b8-4c9d-0e1f-000000000003",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.GetMember",
+    "$id": "3"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 300.0, "y": 0.0},
+    "guid": "c3d4e5f6-a7b8-4c9d-0e1f-000000000004",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "4"
+  },
+  {
+    "sourceUnit": {"$ref": "1"},
+    "sourceKey": "trigger",
+    "destinationUnit": {"$ref": "4"},
+    "destinationKey": "enter",
+    "guid": "c3d4e5f6-a7b8-4c9d-0e1f-000000000005",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "1"},
+    "sourceKey": "collider",
+    "destinationUnit": {"$ref": "2"},
+    "destinationKey": "target",
+    "guid": "c3d4e5f6-a7b8-4c9d-0e1f-000000000006",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "value",
+    "destinationUnit": {"$ref": "3"},
+    "destinationKey": "target",
+    "guid": "c3d4e5f6-a7b8-4c9d-0e1f-000000000007",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "3"},
+    "sourceKey": "value",
+    "destinationUnit": {"$ref": "4"},
+    "destinationKey": "%message",
+    "guid": "c3d4e5f6-a7b8-4c9d-0e1f-000000000008",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  }
+]
+```
+
+**Key observations:**
+- `OnTriggerEnter`: has `defaultValues: {"target": null}` (target filter port)
+- Event ValueOutput port: `collider` (used as sourceKey)
+- Chain: collider → GetMember(gameObject) → GetMember(name) → Debug.Log
+- GetMember instance: `defaultValues: {"target": null}`
+
+---
+
+## 4. Get/Set Variable and Increment
+
+Graph variable "counter" + increment pattern: GetVariable → ScalarSum (+1) → SetVariable.
+
+### Graph Variables Declaration
+
+When declaring graph variables, add them to the `collection.$content` array:
+
+```json
+"variables": {
+  "Kind": "Flow",
+  "collection": {
+    "$content": [
+      {"name": "counter", "value": {"$content": 0, "$type": "System.Int32"}, "$version": "A"}
+    ],
+    "$version": "A"
+  },
+  "$version": "A"
+}
+```
+
+### Elements
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "d4e5f6a7-b8c9-4d0e-1f2a-000000000001",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Start",
+    "$id": "1"
+  },
+  {
+    "kind": "Graph",
+    "defaultValues": {
+      "name": {"$content": "counter", "$type": "System.String"}
+    },
+    "position": {"x": 200.0, "y": 150.0},
+    "guid": "d4e5f6a7-b8c9-4d0e-1f2a-000000000002",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.GetVariable",
+    "$id": "2"
+  },
+  {
+    "inputCount": 2,
+    "defaultValues": {
+      "1": {"$content": 1.0, "$type": "System.Single"}
+    },
+    "position": {"x": 400.0, "y": 150.0},
+    "guid": "d4e5f6a7-b8c9-4d0e-1f2a-000000000003",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.ScalarSum",
+    "$id": "3"
+  },
+  {
+    "kind": "Graph",
+    "defaultValues": {
+      "name": {"$content": "counter", "$type": "System.String"}
+    },
+    "position": {"x": 250.0, "y": 0.0},
+    "guid": "d4e5f6a7-b8c9-4d0e-1f2a-000000000004",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.SetVariable",
+    "$id": "4"
+  },
+  {
+    "sourceUnit": {"$ref": "1"},
+    "sourceKey": "trigger",
+    "destinationUnit": {"$ref": "4"},
+    "destinationKey": "assign",
+    "guid": "d4e5f6a7-b8c9-4d0e-1f2a-000000000005",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "value",
+    "destinationUnit": {"$ref": "3"},
+    "destinationKey": "0",
+    "guid": "d4e5f6a7-b8c9-4d0e-1f2a-000000000006",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "3"},
+    "sourceKey": "sum",
+    "destinationUnit": {"$ref": "4"},
+    "destinationKey": "input",
+    "guid": "d4e5f6a7-b8c9-4d0e-1f2a-000000000007",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  }
+]
+```
+
+**Key observations:**
+- `GetVariable`/`SetVariable`: `kind` field (string: `"Graph"`, `"Object"`, `"Scene"`, `"Application"`, `"Saved"`, `"Flow"`)
+- Variable name in `defaultValues.name` as typed value: `{"$content": "counter", "$type": "System.String"}`
+- `ScalarSum`: `inputCount: 2`, input port keys are `"0"`, `"1"` (NOT `multiInputs[0]`), output is `"sum"`
+- `ScalarSum` defaultValues use index string keys: `{"1": {"$content": 1.0, "$type": "System.Single"}}`
+- `SetVariable` control ports: `assign` (in), `assigned` (out); value ports: `input` (in), `output` (out)
+
+---
+
+## 5. If/Else Branch
+
+Update → GetKeyDown(Space) → If → branch to two Debug.Log actions.
+
+### Elements
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000001",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Update",
+    "$id": "1"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["key"],
+    "member": {
+      "name": "GetKeyDown",
+      "parameterTypes": ["UnityEngine.KeyCode"],
+      "targetType": "UnityEngine.Input",
+      "targetTypeName": "UnityEngine.Input",
+      "$version": "A"
+    },
+    "defaultValues": {
+      "%key": {"$content": 32, "$type": "UnityEngine.KeyCode"}
+    },
+    "position": {"x": 250.0, "y": 0.0},
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000002",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "2"
+  },
+  {
+    "defaultValues": {
+      "condition": {"$content": false, "$type": "System.Boolean"}
+    },
+    "position": {"x": 500.0, "y": 0.0},
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000003",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.If",
+    "$id": "3"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 750.0, "y": -50.0},
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000004",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "4"
+  },
+  {
+    "type": "System.String",
+    "value": {"$content": "Space pressed!", "$type": "System.String"},
+    "defaultValues": {},
+    "position": {"x": 550.0, "y": -150.0},
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000005",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "5"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 750.0, "y": 150.0},
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000006",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "6"
+  },
+  {
+    "type": "System.String",
+    "value": {"$content": "Not pressed", "$type": "System.String"},
+    "defaultValues": {},
+    "position": {"x": 550.0, "y": 250.0},
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000007",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "7"
+  },
+  {
+    "sourceUnit": {"$ref": "1"},
+    "sourceKey": "trigger",
+    "destinationUnit": {"$ref": "2"},
+    "destinationKey": "enter",
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000008",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "exit",
+    "destinationUnit": {"$ref": "3"},
+    "destinationKey": "enter",
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000009",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "result",
+    "destinationUnit": {"$ref": "3"},
+    "destinationKey": "condition",
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000010",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "3"},
+    "sourceKey": "ifTrue",
+    "destinationUnit": {"$ref": "4"},
+    "destinationKey": "enter",
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000011",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "3"},
+    "sourceKey": "ifFalse",
+    "destinationUnit": {"$ref": "6"},
+    "destinationKey": "enter",
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000012",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "5"},
+    "sourceKey": "output",
+    "destinationUnit": {"$ref": "4"},
+    "destinationKey": "%message",
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000013",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "7"},
+    "sourceKey": "output",
+    "destinationUnit": {"$ref": "6"},
+    "destinationKey": "%message",
+    "guid": "e5f6a7b8-c9d0-4e1f-2a3b-000000000014",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  }
+]
+```
+
+**Key observations:**
+- `If` unit: `defaultValues: {"condition": {...}}`, ports: `enter`, `ifTrue`, `ifFalse`, `condition`
+- Enum values (KeyCode.Space = 32): serialized as integer with enum type: `{"$content": 32, "$type": "UnityEngine.KeyCode"}`
+- InvokeMember result port: `"result"` (ValueOutput)
+
+---
+
+## 6. Sequence (fan-out)
+
+Start → Sequence with 3 outputs → three Debug.Log actions.
+
+### Elements
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000001",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Start",
+    "$id": "1"
+  },
+  {
+    "outputCount": 3,
+    "defaultValues": {},
+    "position": {"x": 250.0, "y": 0.0},
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000002",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Sequence",
+    "$id": "2"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 500.0, "y": -150.0},
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000003",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "3"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 500.0, "y": 0.0},
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000004",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "4"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 500.0, "y": 150.0},
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000005",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "5"
+  },
+  {
+    "sourceUnit": {"$ref": "1"},
+    "sourceKey": "trigger",
+    "destinationUnit": {"$ref": "2"},
+    "destinationKey": "enter",
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000006",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "0",
+    "destinationUnit": {"$ref": "3"},
+    "destinationKey": "enter",
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000007",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "1",
+    "destinationUnit": {"$ref": "4"},
+    "destinationKey": "enter",
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000008",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "2"},
+    "sourceKey": "2",
+    "destinationUnit": {"$ref": "5"},
+    "destinationKey": "enter",
+    "guid": "f6a7b8c9-d0e1-4f2a-3b4c-000000000009",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  }
+]
+```
+
+**Key observations:**
+- `Sequence`: `outputCount` property, `defaultValues: {}`
+- Sequence output port keys: `"0"`, `"1"`, `"2"` (index strings, same as multiOutputs)
+- Input port: `"enter"`
+
+---
+
+## 7. InvokeMember Patterns
+
+### Static Method (Debug.Log)
+
+```json
 {
-    [MenuItem("Tools/Create Rotate Graph")]
-    public static void Create()
-    {
-        var graphAsset = ScriptableObject.CreateInstance<ScriptGraphAsset>();
-        var graph = graphAsset.graph;
+  "chainable": false,
+  "parameterNames": ["message"],
+  "member": {
+    "name": "Log",
+    "parameterTypes": ["System.Object"],
+    "targetType": "UnityEngine.Debug",
+    "targetTypeName": "UnityEngine.Debug",
+    "$version": "A"
+  },
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "N"
+}
+```
 
-        // On Update event
-        var onUpdate = new Update();
-        graph.units.Add(onUpdate);
-        onUpdate.position = new Vector2(-300, 0);
+- No `target` in defaultValues (static method)
+- Ports: `enter`, `exit` (control), `%message` (value in), `result` (value out — but Log returns void, no `result` port)
 
-        // Get Time.deltaTime
-        var getDeltaTime = new GetMember(new Member(typeof(Time), nameof(Time.deltaTime)));
-        graph.units.Add(getDeltaTime);
-        getDeltaTime.position = new Vector2(-500, 200);
+### Instance Method (Transform.Rotate)
 
-        // Speed literals (degrees per second)
-        var xSpeed = new Literal(typeof(float), 10f);
-        graph.units.Add(xSpeed);
-        xSpeed.position = new Vector2(-500, 100);
+```json
+{
+  "chainable": false,
+  "parameterNames": ["xAngle", "yAngle", "zAngle"],
+  "member": {
+    "name": "Rotate",
+    "parameterTypes": ["System.Single", "System.Single", "System.Single"],
+    "targetType": "UnityEngine.Transform",
+    "targetTypeName": "UnityEngine.Transform",
+    "$version": "A"
+  },
+  "defaultValues": {
+    "target": null,
+    "%xAngle": {"$content": 0.0, "$type": "System.Single"},
+    "%yAngle": {"$content": 0.0, "$type": "System.Single"},
+    "%zAngle": {"$content": 0.0, "$type": "System.Single"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "N"
+}
+```
 
-        var ySpeed = new Literal(typeof(float), 20f);
-        graph.units.Add(ySpeed);
-        ySpeed.position = new Vector2(-500, 300);
+- `"target": null` in defaultValues (auto-resolves to attached component)
+- Parameter defaults prefixed with `%`
 
-        var zSpeed = new Literal(typeof(float), 5f);
-        graph.units.Add(zSpeed);
-        zSpeed.position = new Vector2(-500, 400);
+### Void Instance Method (GameObject.SetActive)
 
-        // Multiply: speed * deltaTime for each axis
-        var multiplyX = new ScalarMultiply();
-        graph.units.Add(multiplyX);
-        multiplyX.position = new Vector2(-200, 100);
+```json
+{
+  "chainable": false,
+  "parameterNames": ["value"],
+  "member": {
+    "name": "SetActive",
+    "parameterTypes": ["System.Boolean"],
+    "targetType": "UnityEngine.GameObject",
+    "targetTypeName": "UnityEngine.GameObject",
+    "$version": "A"
+  },
+  "defaultValues": {
+    "target": null,
+    "%value": {"$content": false, "$type": "System.Boolean"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "N"
+}
+```
 
-        var multiplyY = new ScalarMultiply();
-        graph.units.Add(multiplyY);
-        multiplyY.position = new Vector2(-200, 300);
+- Void methods: no `result` port available. Do NOT wire `result` from void InvokeMember.
+- `targetOutput` is also null for void instance methods.
 
-        var multiplyZ = new ScalarMultiply();
-        graph.units.Add(multiplyZ);
-        multiplyZ.position = new Vector2(-200, 400);
+### No-Parameter Method (AudioSource.Play)
 
-        // Transform.Rotate(float, float, float)
-        var rotateMember = new Member(typeof(Transform), "Rotate",
-            new[] { typeof(float), typeof(float), typeof(float) });
-        var rotate = new InvokeMember(rotateMember);
-        graph.units.Add(rotate);
-        rotate.position = new Vector2(150, 0);
-
-        // Control: Update -> Rotate
-        graph.controlConnections.Add(new ControlConnection(onUpdate.trigger, rotate.enter));
-
-        // Value: speed * deltaTime -> Rotate parameters
-        graph.valueConnections.Add(new ValueConnection(xSpeed.output, multiplyX.a));
-        graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyX.b));
-        graph.valueConnections.Add(new ValueConnection(ySpeed.output, multiplyY.a));
-        graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyY.b));
-        graph.valueConnections.Add(new ValueConnection(zSpeed.output, multiplyZ.a));
-        graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyZ.b));
-        graph.valueConnections.Add(new ValueConnection(multiplyX.product, rotate.inputParameters[0]));
-        graph.valueConnections.Add(new ValueConnection(multiplyY.product, rotate.inputParameters[1]));
-        graph.valueConnections.Add(new ValueConnection(multiplyZ.product, rotate.inputParameters[2]));
-
-        // Save
-        if (!AssetDatabase.IsValidFolder("Assets/VisualScripting"))
-            AssetDatabase.CreateFolder("Assets", "VisualScripting");
-        AssetDatabase.CreateAsset(graphAsset, "Assets/VisualScripting/RotateCube.asset");
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-
-        // Assign to object
-        var cube = GameObject.Find("RotatingCube");
-        if (cube != null)
-        {
-            var machine = cube.GetComponent<ScriptMachine>();
-            if (machine == null)
-                machine = cube.AddComponent<ScriptMachine>();
-            machine.nest.source = GraphSource.Macro;
-            machine.nest.macro = graphAsset;
-            EditorUtility.SetDirty(cube);
-        }
-    }
+```json
+{
+  "chainable": false,
+  "parameterNames": [],
+  "member": {
+    "name": "Play",
+    "parameterTypes": [],
+    "targetType": "UnityEngine.AudioSource",
+    "targetTypeName": "UnityEngine.AudioSource",
+    "$version": "A"
+  },
+  "defaultValues": {"target": null},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "N"
 }
 ```
 
 ---
 
-## 2. Event Handling
+## 8. GetMember / SetMember
 
-### Start -> Debug.Log
+### GetMember — Static Property (Time.deltaTime)
 
-```csharp
-var start = new Start();
-graph.units.Add(start);
-start.position = new Vector2(0, 0);
-
-var debugLog = new InvokeMember(new Member(typeof(Debug), "Log", new[] { typeof(object) }));
-graph.units.Add(debugLog);
-debugLog.position = new Vector2(300, 0);
-
-var message = new Literal(typeof(string), "Game Started!");
-graph.units.Add(message);
-message.position = new Vector2(100, 150);
-
-graph.controlConnections.Add(new ControlConnection(start.trigger, debugLog.enter));
-graph.valueConnections.Add(new ValueConnection(message.output, debugLog.inputParameters[0]));
-```
-
-### OnEnable / OnDisable pair
-
-```csharp
-var onEnable = new OnEnable();
-graph.units.Add(onEnable);
-onEnable.position = new Vector2(0, 0);
-
-var onDisable = new OnDisable();
-graph.units.Add(onDisable);
-onDisable.position = new Vector2(0, 300);
-// Connect triggers to desired actions
-```
-
----
-
-## 3. Input Handling
-
-### GetKeyDown with Branch
-
-```csharp
-var update = new Update();
-graph.units.Add(update);
-update.position = new Vector2(0, 0);
-
-var getKeyDown = new InvokeMember(
-    new Member(typeof(Input), "GetKeyDown", new[] { typeof(KeyCode) })
-);
-graph.units.Add(getKeyDown);
-getKeyDown.position = new Vector2(300, 0);
-
-var keyCode = new Literal(typeof(KeyCode), KeyCode.Space);
-graph.units.Add(keyCode);
-keyCode.position = new Vector2(100, 150);
-
-var ifUnit = new If();
-graph.units.Add(ifUnit);
-ifUnit.position = new Vector2(550, 0);
-
-graph.controlConnections.Add(new ControlConnection(update.trigger, getKeyDown.enter));
-graph.controlConnections.Add(new ControlConnection(getKeyDown.exit, ifUnit.enter));
-graph.valueConnections.Add(new ValueConnection(keyCode.output, getKeyDown.inputParameters[0]));
-graph.valueConnections.Add(new ValueConnection(getKeyDown.result, ifUnit.condition));
-// ifUnit.ifTrue -> action
-```
-
-### GetAxis (movement)
-
-```csharp
-var getAxis = new InvokeMember(
-    new Member(typeof(Input), "GetAxis", new[] { typeof(string) })
-);
-graph.units.Add(getAxis);
-
-var axisName = new Literal(typeof(string), "Horizontal");
-graph.units.Add(axisName);
-
-graph.valueConnections.Add(new ValueConnection(axisName.output, getAxis.inputParameters[0]));
-// getAxis.result -> float value
-```
-
----
-
-## 4. Transform Manipulation
-
-### Translate (move forward)
-
-```csharp
-var translate = new InvokeMember(
-    new Member(typeof(Transform), "Translate", new[] { typeof(Vector3) })
-);
-graph.units.Add(translate);
-
-var direction = new Literal(typeof(Vector3), new Vector3(0, 0, 1));
-graph.units.Add(direction);
-
-graph.valueConnections.Add(new ValueConnection(direction.output, translate.inputParameters[0]));
-```
-
-### Get/Set Position
-
-```csharp
-// Get position
-var getPos = new GetMember(new Member(typeof(Transform), "position"));
-graph.units.Add(getPos);
-// getPos.value -> Vector3
-
-// Set position
-var setPos = new SetMember(new Member(typeof(Transform), "position"));
-graph.units.Add(setPos);
-// setPos.assign (ControlInput), setPos.input (ValueInput for Vector3)
-```
-
-### LookAt
-
-```csharp
-var lookAt = new InvokeMember(
-    new Member(typeof(Transform), "LookAt", new[] { typeof(Transform) })
-);
-graph.units.Add(lookAt);
-```
-
----
-
-## 5. Physics
-
-### OnTriggerEnter -> Debug.Log
-
-```csharp
-var onTrigger = new OnTriggerEnter();
-graph.units.Add(onTrigger);
-onTrigger.position = new Vector2(0, 0);
-
-var debugLog = new InvokeMember(new Member(typeof(Debug), "Log", new[] { typeof(object) }));
-graph.units.Add(debugLog);
-debugLog.position = new Vector2(300, 0);
-
-var msg = new Literal(typeof(string), "Trigger entered!");
-graph.units.Add(msg);
-msg.position = new Vector2(100, 150);
-
-graph.controlConnections.Add(new ControlConnection(onTrigger.trigger, debugLog.enter));
-graph.valueConnections.Add(new ValueConnection(msg.output, debugLog.inputParameters[0]));
-```
-
-### AddForce
-
-```csharp
-var addForce = new InvokeMember(
-    new Member(typeof(Rigidbody), "AddForce", new[] { typeof(Vector3) })
-);
-graph.units.Add(addForce);
-
-var force = new Literal(typeof(Vector3), new Vector3(0, 500, 0));
-graph.units.Add(force);
-
-graph.valueConnections.Add(new ValueConnection(force.output, addForce.inputParameters[0]));
-```
-
----
-
-## 6. Variables
-
-### Declare + Get + Set graph variables
-
-```csharp
-// Declare
-graph.variables.Set("score", 0);
-
-// GetVariable unit
-var getScore = new GetVariable() { kind = VariableKind.Graph };
-graph.units.Add(getScore);
-getScore.defaultValues["name"] = "score";
-// getScore.value -> int
-
-// SetVariable unit
-var setScore = new SetVariable() { kind = VariableKind.Graph };
-graph.units.Add(setScore);
-setScore.defaultValues["name"] = "score";
-// control: setScore.assign -> setScore.assigned
-// value: newValue -> setScore.input
-```
-
-### Increment variable pattern
-
-```csharp
-graph.variables.Set("counter", 0);
-
-var getVar = new GetVariable() { kind = VariableKind.Graph };
-graph.units.Add(getVar);
-getVar.defaultValues["name"] = "counter";
-
-var addOne = new ScalarAdd();
-graph.units.Add(addOne);
-
-var one = new Literal(typeof(int), 1);
-graph.units.Add(one);
-
-var setVar = new SetVariable() { kind = VariableKind.Graph };
-graph.units.Add(setVar);
-setVar.defaultValues["name"] = "counter";
-
-graph.valueConnections.Add(new ValueConnection(getVar.value, addOne.a));
-graph.valueConnections.Add(new ValueConnection(one.output, addOne.b));
-graph.valueConnections.Add(new ValueConnection(addOne.sum, setVar.input));
-// Wire control: trigger -> setVar.assign
-```
-
----
-
-## 7. Flow Control
-
-### If/Else branch
-
-```csharp
-var ifUnit = new If();
-graph.units.Add(ifUnit);
-
-// Wire: condition source -> ifUnit.condition
-// Wire: ifUnit.ifTrue -> true action
-// Wire: ifUnit.ifFalse -> false action
-```
-
-### Sequence (multiple actions)
-
-```csharp
-var seq = new Sequence();
-seq.outputCount = 3;
-graph.units.Add(seq);
-
-graph.controlConnections.Add(new ControlConnection(trigger.exit, seq.enter));
-graph.controlConnections.Add(new ControlConnection(seq.multiOutputs[0], action1.enter));
-graph.controlConnections.Add(new ControlConnection(seq.multiOutputs[1], action2.enter));
-graph.controlConnections.Add(new ControlConnection(seq.multiOutputs[2], action3.enter));
-```
-
-### For loop
-
-```csharp
-var forLoop = new For();
-graph.units.Add(forLoop);
-
-var first = new Literal(typeof(int), 0);
-graph.units.Add(first);
-var last = new Literal(typeof(int), 10);
-graph.units.Add(last);
-var step = new Literal(typeof(int), 1);
-graph.units.Add(step);
-
-graph.valueConnections.Add(new ValueConnection(first.output, forLoop.firstIndex));
-graph.valueConnections.Add(new ValueConnection(last.output, forLoop.lastIndex));
-graph.valueConnections.Add(new ValueConnection(step.output, forLoop.step));
-// forLoop.body -> loop body, forLoop.exit -> after loop
-// forLoop.currentIndex -> current i
-```
-
-### While loop
-
-```csharp
-var whileLoop = new While();
-graph.units.Add(whileLoop);
-// Wire: condition -> whileLoop.condition
-// Wire: whileLoop.body -> loop actions
-// Wire: whileLoop.exit -> after loop
-```
-
----
-
-## 8. Component Access
-
-### GetComponent pattern
-
-```csharp
-var getComponent = new InvokeMember(
-    new Member(typeof(GameObject), "GetComponent",
-        new[] { typeof(string) })
-);
-graph.units.Add(getComponent);
-// Or use GetMember on a known component type property
-```
-
-### SetActive
-
-```csharp
-var setActive = new InvokeMember(
-    new Member(typeof(GameObject), "SetActive", new[] { typeof(bool) })
-);
-graph.units.Add(setActive);
-
-var active = new Literal(typeof(bool), false);
-graph.units.Add(active);
-
-graph.valueConnections.Add(new ValueConnection(active.output, setActive.inputParameters[0]));
-```
-
-### Instantiate
-
-```csharp
-var instantiate = new InvokeMember(
-    new Member(typeof(Object), "Instantiate", new[] { typeof(Object) })
-);
-graph.units.Add(instantiate);
-// Wire prefab reference to instantiate.inputParameters[0]
-```
-
-### Destroy
-
-```csharp
-var destroy = new InvokeMember(
-    new Member(typeof(Object), "Destroy", new[] { typeof(Object) })
-);
-graph.units.Add(destroy);
-```
-
----
-
-## 9. Coroutine-Like Patterns
-
-### WaitForSeconds
-
-```csharp
-var wait = new WaitForSecondsUnit();
-graph.units.Add(wait);
-
-var seconds = new Literal(typeof(float), 2.0f);
-graph.units.Add(seconds);
-
-graph.valueConnections.Add(new ValueConnection(seconds.output, wait.seconds));
-// Control: trigger -> wait.enter, wait.exit -> next action
-```
-
-### WaitUntil
-
-```csharp
-var waitUntil = new WaitUntilUnit();
-graph.units.Add(waitUntil);
-// Wire condition -> waitUntil.condition
-// Control: trigger -> waitUntil.enter, waitUntil.exit -> next action
-```
-
----
-
-## 10. UI Interactions
-
-### OnButtonClick
-
-```csharp
-var onClick = new OnButtonClick();
-graph.units.Add(onClick);
-onClick.position = new Vector2(0, 0);
-// onClick.trigger -> action
-```
-
-### OnSliderValueChanged
-
-```csharp
-var onSlider = new OnSliderValueChanged();
-graph.units.Add(onSlider);
-// onSlider.trigger, onSlider.value outputs
-```
-
----
-
-## 11. Animation
-
-### Animator.SetTrigger
-
-```csharp
-var setTrigger = new InvokeMember(
-    new Member(typeof(Animator), "SetTrigger", new[] { typeof(string) })
-);
-graph.units.Add(setTrigger);
-
-var triggerName = new Literal(typeof(string), "Jump");
-graph.units.Add(triggerName);
-
-graph.valueConnections.Add(new ValueConnection(triggerName.output, setTrigger.inputParameters[0]));
-```
-
-### Animator.SetBool
-
-```csharp
-var setBool = new InvokeMember(
-    new Member(typeof(Animator), "SetBool", new[] { typeof(string), typeof(bool) })
-);
-graph.units.Add(setBool);
-```
-
-### Animator.SetFloat
-
-```csharp
-var setFloat = new InvokeMember(
-    new Member(typeof(Animator), "SetFloat", new[] { typeof(string), typeof(float) })
-);
-graph.units.Add(setFloat);
-```
-
----
-
-## 12. Audio
-
-### AudioSource.Play
-
-```csharp
-var play = new InvokeMember(
-    new Member(typeof(AudioSource), "Play")
-);
-graph.units.Add(play);
-```
-
-### AudioSource.PlayOneShot
-
-```csharp
-var playOneShot = new InvokeMember(
-    new Member(typeof(AudioSource), "PlayOneShot", new[] { typeof(AudioClip) })
-);
-graph.units.Add(playOneShot);
-```
-
----
-
-## 13. Debug Logging
-
-### Debug.Log
-
-```csharp
-var debugLog = new InvokeMember(
-    new Member(typeof(Debug), "Log", new[] { typeof(object) })
-);
-graph.units.Add(debugLog);
-
-var msg = new Literal(typeof(string), "Message");
-graph.units.Add(msg);
-
-graph.valueConnections.Add(new ValueConnection(msg.output, debugLog.inputParameters[0]));
-```
-
-### Debug.LogWarning / Debug.LogError
-
-```csharp
-var logWarning = new InvokeMember(
-    new Member(typeof(Debug), "LogWarning", new[] { typeof(object) })
-);
-var logError = new InvokeMember(
-    new Member(typeof(Debug), "LogError", new[] { typeof(object) })
-);
-```
-
----
-
-## 14. Graph Assignment
-
-### Assign existing asset to GameObject
-
-```csharp
-public static void AssignGraph()
+```json
 {
-    var go = GameObject.Find("TargetObject");
-    if (go == null) { Debug.LogError("Object not found."); return; }
-
-    var graphAsset = AssetDatabase.LoadAssetAtPath<ScriptGraphAsset>(
-        "Assets/VisualScripting/MyGraph.asset");
-    if (graphAsset == null) { Debug.LogError("Graph asset not found."); return; }
-
-    var machine = go.GetComponent<ScriptMachine>();
-    if (machine == null)
-        machine = go.AddComponent<ScriptMachine>();
-
-    machine.nest.source = GraphSource.Macro;
-    machine.nest.macro = graphAsset;
-    EditorUtility.SetDirty(go);
+  "member": {
+    "name": "deltaTime",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Time",
+    "targetTypeName": "UnityEngine.Time",
+    "$version": "A"
+  },
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.GetMember",
+  "$id": "N"
 }
 ```
 
-### Assign to selected GameObject (editor selection)
+- Static: no `target` in defaultValues
+- Output port: `"value"`
 
-```csharp
-public static void AssignToSelected()
+### GetMember — Instance Property (Transform.position)
+
+```json
 {
-    var go = Selection.activeGameObject;
-    if (go == null) { Debug.LogError("No GameObject selected."); return; }
-
-    var graphAsset = AssetDatabase.LoadAssetAtPath<ScriptGraphAsset>(
-        "Assets/VisualScripting/MyGraph.asset");
-    if (graphAsset == null) { Debug.LogError("Graph asset not found."); return; }
-
-    var machine = go.GetComponent<ScriptMachine>();
-    if (machine == null)
-        machine = go.AddComponent<ScriptMachine>();
-
-    machine.nest.source = GraphSource.Macro;
-    machine.nest.macro = graphAsset;
-    EditorUtility.SetDirty(go);
-    Selection.activeGameObject = go;
+  "member": {
+    "name": "position",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Transform",
+    "targetTypeName": "UnityEngine.Transform",
+    "$version": "A"
+  },
+  "defaultValues": {"target": null},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.GetMember",
+  "$id": "N"
 }
 ```
 
-### Assign StateGraph to GameObject
+- Instance: `"target": null` in defaultValues (auto-resolves)
 
-```csharp
-public static void AssignStateGraph()
+### SetMember — Instance Property (Transform.position)
+
+```json
 {
-    var go = GameObject.Find("TargetObject");
-    if (go == null) { Debug.LogError("Object not found."); return; }
-
-    var stateAsset = AssetDatabase.LoadAssetAtPath<StateGraphAsset>(
-        "Assets/VisualScripting/MyStateGraph.asset");
-    if (stateAsset == null) { Debug.LogError("State graph asset not found."); return; }
-
-    var machine = go.GetComponent<StateMachine>();
-    if (machine == null)
-        machine = go.AddComponent<StateMachine>();
-
-    machine.nest.source = GraphSource.Macro;
-    machine.nest.macro = stateAsset;
-    EditorUtility.SetDirty(go);
+  "member": {
+    "name": "position",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Transform",
+    "targetTypeName": "UnityEngine.Transform",
+    "$version": "A"
+  },
+  "defaultValues": {
+    "target": null,
+    "input": {"x": 0.0, "y": 0.0, "z": 0.0, "$type": "UnityEngine.Vector3"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.SetMember",
+  "$id": "N"
 }
 ```
 
-### Embed graph directly in component
+- Control ports: `assign` (in), `assigned` (out)
+- Value ports: `target`, `input` (in), `output` (out)
 
-```csharp
-var machine = go.AddComponent<ScriptMachine>();
-machine.nest.source = GraphSource.Embed;
-machine.nest.embed = FlowGraph.WithStartUpdate();
-EditorUtility.SetDirty(go);
+---
+
+## 9. Literal Value Types
+
+### String
+
+```json
+{
+  "type": "System.String",
+  "value": {"$content": "Hello World", "$type": "System.String"},
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Literal",
+  "$id": "N"
+}
 ```
+
+### Int
+
+```json
+{
+  "type": "System.Int32",
+  "value": {"$content": 42, "$type": "System.Int32"},
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Literal",
+  "$id": "N"
+}
+```
+
+### Float
+
+```json
+{
+  "type": "System.Single",
+  "value": {"$content": 3.14, "$type": "System.Single"},
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Literal",
+  "$id": "N"
+}
+```
+
+### Bool
+
+```json
+{
+  "type": "System.Boolean",
+  "value": {"$content": true, "$type": "System.Boolean"},
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Literal",
+  "$id": "N"
+}
+```
+
+### Vector3
+
+```json
+{
+  "type": "UnityEngine.Vector3",
+  "value": {"x": 1.0, "y": 2.0, "z": 3.0, "$type": "UnityEngine.Vector3"},
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Literal",
+  "$id": "N"
+}
+```
+
+### Color
+
+```json
+{
+  "type": "UnityEngine.Color",
+  "value": {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0, "$type": "UnityEngine.Color"},
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Literal",
+  "$id": "N"
+}
+```
+
+### Enum (KeyCode)
+
+```json
+{
+  "type": "UnityEngine.KeyCode",
+  "value": {"$content": 32, "$type": "UnityEngine.KeyCode"},
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Literal",
+  "$id": "N"
+}
+```
+
+Enums are serialized as their integer value (e.g., `KeyCode.Space` = 32).
+
+---
+
+## JSON Serialization Quick Reference
+
+| Concept | Format |
+|---------|--------|
+| Unit $id | Sequential string integers: `"1"`, `"2"`, ... |
+| Unit reference | `{"$ref": "1"}` |
+| UUID | `uuidgen \| tr '[:upper:]' '[:lower:]'` for each element |
+| $version | Always `"A"` |
+| Position | `{"x": 0.0, "y": 0.0}` (pixels, ~250px horizontal spacing) |
+| Typed value | `{"$content": VALUE, "$type": "Full.Type.Name"}` |
+| Struct value | Direct fields + `$type`: `{"x": 1.0, "y": 2.0, "z": 3.0, "$type": "UnityEngine.Vector3"}` |
+| Null | `null` |
+| Member | `{"name": "...", "parameterTypes": [...], "targetType": "...", "targetTypeName": "...", "$version": "A"}` |
+| Param port key | `%paramName` (e.g., `%message`, `%xAngle`) |
+| ScalarSum input keys | `"0"`, `"1"` (index strings) |
+| Sequence output keys | `"0"`, `"1"`, `"2"` (index strings) |

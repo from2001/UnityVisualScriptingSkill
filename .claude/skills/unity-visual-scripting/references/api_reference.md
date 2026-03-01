@@ -2,180 +2,207 @@
 
 ## Table of Contents
 
-1. [Graph Asset Types](#1-graph-asset-types)
+1. [Graph Asset Format](#1-graph-asset-format)
 2. [Unit Types Catalog](#2-unit-types-catalog)
 3. [Port Name Reference](#3-port-name-reference)
-4. [Member Class](#4-member-class)
-5. [Connection API](#5-connection-api)
+4. [Member Object Format](#4-member-object-format)
+5. [Connection Format](#5-connection-format)
 6. [Variable System](#6-variable-system)
-7. [Machine Components](#7-machine-components)
-8. [Asset Management](#8-asset-management)
+7. [Assignment to GameObjects](#7-assignment-to-gameobjects)
+8. [File Writing](#8-file-writing)
 
 ---
 
-## 1. Graph Asset Types
+## 1. Graph Asset Format
 
-| Asset Type | Internal Graph | Machine Component | Use Case |
-|-----------|---------------|-------------------|----------|
-| `ScriptGraphAsset` | `FlowGraph` | `ScriptMachine` | Sequential flow-based logic |
-| `StateGraphAsset` | `StateGraph` | `StateMachine` | State machine logic |
+### YAML Template
 
-### FlowGraph Factory Methods
-
-```csharp
-FlowGraph.WithStartUpdate()   // Start + Update events (standard gameplay)
-FlowGraph.WithInputOutput()   // GraphInput + GraphOutput (subgraphs)
-StateGraph.WithStart()        // Initial state graph
+```yaml
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e66c6366d904e98bc83428217d4fd7, type: 3}
+  m_Name: GRAPH_NAME
+  m_EditorClassIdentifier:
+  _data:
+    _json: 'JSON_CONTENT'
+    _objectReferences: []
 ```
 
-### Creating Assets
+- `m_Script` guid `95e66c6366d904e98bc83428217d4fd7` = ScriptGraphAsset (constant)
+- JSON is a single-line string inside YAML single quotes
+- Single quotes in JSON string values must be escaped as `''`
 
-```csharp
-// Script Graph (auto-initializes FlowGraph)
-var graphAsset = ScriptableObject.CreateInstance<ScriptGraphAsset>();
-var graph = graphAsset.graph; // pre-initialized FlowGraph
+### JSON Structure
 
-// State Graph
-var stateAsset = ScriptableObject.CreateInstance<StateGraphAsset>();
-stateAsset.graph = StateGraph.WithStart();
+```json
+{
+  "graph": {
+    "variables": {
+      "Kind": "Flow",
+      "collection": {"$content": [], "$version": "A"},
+      "$version": "A"
+    },
+    "controlInputDefinitions": [],
+    "controlOutputDefinitions": [],
+    "valueInputDefinitions": [],
+    "valueOutputDefinitions": [],
+    "title": null,
+    "summary": null,
+    "pan": {"x": 0.0, "y": 0.0},
+    "zoom": 1.0,
+    "elements": [],
+    "$version": "A"
+  }
+}
 ```
+
+The `elements` array is a flat list of ALL units followed by ALL connections.
+
+### $id / $ref System
+
+- Every **unit** gets a sequential `$id` (string integer: `"1"`, `"2"`, ...)
+- **Connections** reference units via `{"$ref": "ID"}` — connections themselves do NOT have `$id`
+- Every unit AND connection gets a unique `guid` (UUID v4)
 
 ---
 
 ## 2. Unit Types Catalog
 
-All classes in `Unity.VisualScripting` namespace.
+All classes in `Unity.VisualScripting` namespace. The `$type` column shows the JSON serialization type string.
 
-### Event Units (Entry Points - no ControlInput)
+### Event Units (Entry Points — no ControlInput)
 
-| Class | ControlOutput | ValueOutputs | Notes |
-|-------|--------------|-------------|-------|
-| `Start` | `trigger` | - | Unity Start lifecycle |
-| `Update` | `trigger` | - | Every frame |
-| `FixedUpdate` | `trigger` | - | Fixed timestep |
-| `LateUpdate` | `trigger` | - | After all Updates |
-| `OnEnable` | `trigger` | - | Object enabled |
-| `OnDisable` | `trigger` | - | Object disabled |
-| `OnDestroy` | `trigger` | - | Object destroyed |
-| `OnTriggerEnter` | `trigger` | `collider` | 3D trigger |
-| `OnTriggerExit` | `trigger` | `collider` | 3D trigger end |
-| `OnTriggerStay` | `trigger` | `collider` | 3D trigger stay |
-| `OnCollisionEnter` | `trigger` | `collider`, `contacts`, `impulse`, `relativeVelocity` | 3D collision |
-| `OnCollisionExit` | `trigger` | `collider` | 3D collision end |
-| `OnTriggerEnter2D` | `trigger` | `collider` | 2D trigger |
-| `OnCollisionEnter2D` | `trigger` | `collider` | 2D collision |
-| `OnKeyboardInput` | `trigger` | - | Properties: `key` (KeyCode), `action` (PressState) |
-| `CustomEvent` | `trigger` | `arg_0`..`arg_N` | Set `argumentCount` property |
+| Class | $type | ControlOutput | ValueOutputs | Extra Fields |
+|-------|-------|--------------|-------------|--------------|
+| `Start` | `Unity.VisualScripting.Start` | `trigger` | — | `coroutine`, `defaultValues: {}` |
+| `Update` | `Unity.VisualScripting.Update` | `trigger` | — | `coroutine`, `defaultValues: {}` |
+| `FixedUpdate` | `Unity.VisualScripting.FixedUpdate` | `trigger` | — | `coroutine`, `defaultValues: {}` |
+| `LateUpdate` | `Unity.VisualScripting.LateUpdate` | `trigger` | — | `coroutine`, `defaultValues: {}` |
+| `OnEnable` | `Unity.VisualScripting.OnEnable` | `trigger` | — | `coroutine`, `defaultValues: {}` |
+| `OnDisable` | `Unity.VisualScripting.OnDisable` | `trigger` | — | `coroutine`, `defaultValues: {}` |
+| `OnDestroy` | `Unity.VisualScripting.OnDestroy` | `trigger` | — | `coroutine`, `defaultValues: {}` |
+| `OnTriggerEnter` | `Unity.VisualScripting.OnTriggerEnter` | `trigger` | `collider` | `coroutine`, `defaultValues: {"target": null}` |
+| `OnTriggerExit` | `Unity.VisualScripting.OnTriggerExit` | `trigger` | `collider` | `coroutine`, `defaultValues: {"target": null}` |
+| `OnTriggerStay` | `Unity.VisualScripting.OnTriggerStay` | `trigger` | `collider` | `coroutine`, `defaultValues: {"target": null}` |
+| `OnCollisionEnter` | `Unity.VisualScripting.OnCollisionEnter` | `trigger` | `collider`, `contacts`, `impulse`, `relativeVelocity` | `coroutine`, `defaultValues: {"target": null}` |
+| `OnCollisionExit` | `Unity.VisualScripting.OnCollisionExit` | `trigger` | `collider` | `coroutine`, `defaultValues: {"target": null}` |
+| `OnTriggerEnter2D` | `Unity.VisualScripting.OnTriggerEnter2D` | `trigger` | `collider` | `coroutine`, `defaultValues: {"target": null}` |
+| `OnCollisionEnter2D` | `Unity.VisualScripting.OnCollisionEnter2D` | `trigger` | `collider` | `coroutine`, `defaultValues: {"target": null}` |
+| `OnKeyboardInput` | `Unity.VisualScripting.OnKeyboardInput` | `trigger` | — | `coroutine`, `key` (KeyCode int), `action` (PressState int) |
+| `CustomEvent` | `Unity.VisualScripting.CustomEvent` | `trigger` | `arg_0`..`arg_N` | `coroutine`, `argumentCount` |
 
 ### Member Access Units
 
-| Class | Constructor | ControlIn | ControlOut | ValueIn | ValueOut |
-|-------|-----------|-----------|-----------|---------|---------|
-| `GetMember` | `new GetMember(member)` | - | - | `target`* | `value` |
-| `SetMember` | `new SetMember(member)` | `assign` | `assigned` | `target`*, `input` | `output` |
-| `InvokeMember` | `new InvokeMember(member)` | `enter` | `exit` | `target`*, `inputParameters[n]` | `result`**, `outputParameters[n]` |
+| Class | $type | ControlIn | ControlOut | ValueIn | ValueOut | Extra Fields |
+|-------|-------|-----------|-----------|---------|---------|--------------|
+| `GetMember` | `Unity.VisualScripting.GetMember` | — | — | `target`* | `value` | `member` |
+| `SetMember` | `Unity.VisualScripting.SetMember` | `assign` | `assigned` | `target`*, `input` | `output` | `member` |
+| `InvokeMember` | `Unity.VisualScripting.InvokeMember` | `enter` | `exit` | `target`*, `%paramName` | `result`**, `targetOutput`** | `member`, `chainable`, `parameterNames` |
 
 \* `target` only for instance members (omitted for static)
-\** `result` only for non-void methods
+\** `result` only for non-void methods; `targetOutput` null for void instance methods
 
 ### Literal
 
-```csharp
-new Literal(typeof(float), 10f)        // float
-new Literal(typeof(int), 42)           // int
-new Literal(typeof(string), "Hello")   // string
-new Literal(typeof(bool), true)        // bool
-new Literal(typeof(Vector3), new Vector3(1, 2, 3))   // Vector3
-new Literal(typeof(Color), Color.red)  // Color
-new Literal(typeof(KeyCode), KeyCode.Space) // Enum
-```
-
-Port: `output` (ValueOutput)
+| $type | Extra Fields | Port |
+|-------|-------------|------|
+| `Unity.VisualScripting.Literal` | `type`, `value` | `output` (ValueOutput) |
 
 ### Scalar Math
 
-| Class | ValueInput | ValueOutput |
-|-------|-----------|------------|
-| `ScalarAdd` | `a`, `b` | `sum` |
-| `ScalarSubtract` | `minuend`, `subtrahend` | `difference` |
-| `ScalarMultiply` | `a`, `b` | `product` |
-| `ScalarDivide` | `dividend`, `divisor` | `quotient` |
-| `ScalarModulo` | `dividend`, `divisor` | `remainder` |
+| Class | $type | ValueInput | ValueOutput | Extra Fields |
+|-------|-------|-----------|------------|--------------|
+| `ScalarSum` | `Unity.VisualScripting.ScalarSum` | `0`, `1` | `sum` | `inputCount` |
+| `ScalarSubtract` | `Unity.VisualScripting.ScalarSubtract` | `minuend`, `subtrahend` | `difference` | — |
+| `ScalarMultiply` | `Unity.VisualScripting.ScalarMultiply` | `a`, `b` | `product` | — |
+| `ScalarDivide` | `Unity.VisualScripting.ScalarDivide` | `dividend`, `divisor` | `quotient` | — |
+| `ScalarModulo` | `Unity.VisualScripting.ScalarModulo` | `dividend`, `divisor` | `remainder` | — |
 
-Multi-input variants: `ScalarSum`, `ScalarMultiply` (set `inputCount` property)
+**Note**: `ScalarAdd` does not exist — use `ScalarSum`. Input port keys for Sum units are index strings (`"0"`, `"1"`), not `a`/`b`.
 
 ### Generic Arithmetic
 
-| Class | ValueInput | ValueOutput |
-|-------|-----------|------------|
-| `GenericSum` | `a`, `b` | `sum` |
-| `GenericSubtract` | `minuend`, `subtrahend` | `difference` |
-| `GenericMultiply` | `a`, `b` | `product` |
-| `GenericDivide` | `dividend`, `divisor` | `quotient` |
+| Class | $type | ValueInput | ValueOutput | Extra Fields |
+|-------|-------|-----------|------------|--------------|
+| `GenericSum` | `Unity.VisualScripting.GenericSum` | `0`, `1` | `sum` | `inputCount` |
+| `GenericSubtract` | `Unity.VisualScripting.GenericSubtract` | `minuend`, `subtrahend` | `difference` | — |
+| `GenericMultiply` | `Unity.VisualScripting.GenericMultiply` | `a`, `b` | `product` | — |
+| `GenericDivide` | `Unity.VisualScripting.GenericDivide` | `dividend`, `divisor` | `quotient` | — |
 
 ### Flow Control
 
-| Class | ControlIn | ControlOut | ValueIn | ValueOut |
-|-------|----------|-----------|---------|---------|
-| `If` | `enter` | `ifTrue`, `ifFalse` | `condition` (bool) | - |
-| `Sequence` | `enter` | `multiOutputs[0..N]` | - | - |
-| `For` | `enter` | `body`, `exit` | `firstIndex`, `lastIndex`, `step` | `currentIndex` |
-| `ForEach` | `enter` | `body`, `exit` | `collection` | `currentItem`, `currentIndex`, `currentKey` |
-| `While` | `enter` | `body`, `exit` | `condition` (bool) | - |
-| `Once` | `enter`, `reset` | `once`, `after` | - | - |
-| `NullCheck` | `enter` | `ifNotNull`, `ifNull` | `input` | - |
-| `SwitchOnEnum` | `enter` | dynamic `branches` | `enum` | - |
-| `SelectUnit` | - | - | `condition`, `ifTrue`, `ifFalse` | `selection` |
+| Class | $type | ControlIn | ControlOut | ValueIn | ValueOut | Extra Fields |
+|-------|-------|----------|-----------|---------|---------|--------------|
+| `If` | `Unity.VisualScripting.If` | `enter` | `ifTrue`, `ifFalse` | `condition` | — | — |
+| `Sequence` | `Unity.VisualScripting.Sequence` | `enter` | `0`, `1`, ... | — | — | `outputCount` |
+| `For` | `Unity.VisualScripting.For` | `enter` | `body`, `exit` | `firstIndex`, `lastIndex`, `step` | `currentIndex` | — |
+| `ForEach` | `Unity.VisualScripting.ForEach` | `enter` | `body`, `exit` | `collection` | `currentItem`, `currentIndex`, `currentKey` | — |
+| `While` | `Unity.VisualScripting.While` | `enter` | `body`, `exit` | `condition` | — | — |
+| `Once` | `Unity.VisualScripting.Once` | `enter`, `reset` | `once`, `after` | — | — | — |
+| `NullCheck` | `Unity.VisualScripting.NullCheck` | `enter` | `ifNotNull`, `ifNull` | `input` | — | — |
+| `SwitchOnEnum` | `Unity.VisualScripting.SwitchOnEnum` | `enter` | dynamic `branches` | `enum` | — | — |
+| `SelectUnit` | `Unity.VisualScripting.SelectUnit` | — | — | `condition`, `ifTrue`, `ifFalse` | `selection` | — |
 
-`Sequence`: set `outputCount` property (default 2, max 10)
+`Sequence` output port keys: `"0"`, `"1"`, ... (index strings). Set `outputCount` (default 2, max 10).
 
 ### Variable Units
 
-| Class | ControlIn | ControlOut | ValueIn | ValueOut | Properties |
-|-------|----------|-----------|---------|---------|-----------|
-| `GetVariable` | - | - | `name`, `@object`* | `value` | `kind` (set before Add), `defaultValues["name"]` (set after Add) |
-| `SetVariable` | `assign` | `assigned` | `name`, `input`, `@object`* | `output` | `kind` (set before Add), `defaultValues["name"]` (set after Add) |
-| `IsVariableDefined` | - | - | `name`, `@object`* | `isDefined` (bool) | `kind` (set before Add), `defaultValues["name"]` (set after Add) |
+| Class | $type | ControlIn | ControlOut | ValueIn | ValueOut | Extra Fields |
+|-------|-------|----------|-----------|---------|---------|--------------|
+| `GetVariable` | `Unity.VisualScripting.GetVariable` | — | — | `name`, `@object`* | `value` | `kind` |
+| `SetVariable` | `Unity.VisualScripting.SetVariable` | `assign` | `assigned` | `name`, `input`, `@object`* | `output` | `kind` |
+| `IsVariableDefined` | `Unity.VisualScripting.IsVariableDefined` | — | — | `name`, `@object`* | `isDefined` | `kind` |
 
-\* `@object` only when `kind == VariableKind.Object`
+\* `@object` only when `kind == "Object"`
+
+`kind` values: `"Graph"`, `"Object"`, `"Scene"`, `"Application"`, `"Saved"`, `"Flow"`
+
+Variable name set in `defaultValues.name`: `{"$content": "varName", "$type": "System.String"}`
 
 ### Logic / Comparison
 
-| Class | ValueIn | ValueOut |
-|-------|---------|---------|
-| `And` | `a`, `b` | `result` (bool) |
-| `Or` | `a`, `b` | `result` (bool) |
-| `Negate` | `input` | `output` (bool) |
-| `Equal` | `a`, `b` | `comparison` (bool) |
-| `NotEqual` | `a`, `b` | `comparison` (bool) |
-| `Greater` | `a`, `b` | `comparison` (bool) |
-| `Less` | `a`, `b` | `comparison` (bool) |
-| `GreaterOrEqual` | `a`, `b` | `comparison` (bool) |
-| `LessOrEqual` | `a`, `b` | `comparison` (bool) |
+| Class | $type | ValueIn | ValueOut |
+|-------|-------|---------|---------|
+| `And` | `Unity.VisualScripting.And` | `a`, `b` | `result` |
+| `Or` | `Unity.VisualScripting.Or` | `a`, `b` | `result` |
+| `Negate` | `Unity.VisualScripting.Negate` | `input` | `output` |
+| `Equal` | `Unity.VisualScripting.Equal` | `a`, `b` | `comparison` |
+| `NotEqual` | `Unity.VisualScripting.NotEqual` | `a`, `b` | `comparison` |
+| `Greater` | `Unity.VisualScripting.Greater` | `a`, `b` | `comparison` |
+| `Less` | `Unity.VisualScripting.Less` | `a`, `b` | `comparison` |
+| `GreaterOrEqual` | `Unity.VisualScripting.GreaterOrEqual` | `a`, `b` | `comparison` |
+| `LessOrEqual` | `Unity.VisualScripting.LessOrEqual` | `a`, `b` | `comparison` |
 
 ### Time Units
 
-| Class | ControlIn | ControlOut | ValueIn | ValueOut |
-|-------|----------|-----------|---------|---------|
-| `WaitForSecondsUnit` | `enter` | `exit` | `seconds` (float), `unscaledTime` (bool) | - |
-| `WaitUntilUnit` | `enter` | `exit` | `condition` (bool) | - |
-| `Cooldown` | `enter`, `reset` | `tick`, `becameReady` | `seconds`, `unscaledTime` | `remaining` |
+| Class | $type | ControlIn | ControlOut | ValueIn | ValueOut |
+|-------|-------|----------|-----------|---------|---------|
+| `WaitForSecondsUnit` | `Unity.VisualScripting.WaitForSecondsUnit` | `enter` | `exit` | `seconds`, `unscaledTime` | — |
+| `WaitUntilUnit` | `Unity.VisualScripting.WaitUntilUnit` | `enter` | `exit` | `condition` | — |
+| `Cooldown` | `Unity.VisualScripting.Cooldown` | `enter`, `reset` | `tick`, `becameReady` | `seconds`, `unscaledTime` | `remaining` |
 
 ### Special Units
 
-| Class | Purpose |
-|-------|---------|
-| `SubgraphUnit` | Nests a FlowGraph (`new SubgraphUnit(scriptGraphAsset)`) |
-| `GraphInput` | Input interface inside subgraphs |
-| `GraphOutput` | Output interface inside subgraphs |
-| `StateUnit` | Embeds a StateGraph in a FlowGraph |
-| `TriggerCustomEvent` | Fires custom events (set `argumentCount`) |
-| `This` | Reference to current GameObject (`self` ValueOutput) |
-| `Formula` | Math expression (`formula` string property) |
+| Class | $type | Purpose |
+|-------|-------|---------|
+| `This` | `Unity.VisualScripting.This` | Reference to current GameObject. Port: `self` (ValueOutput) |
+| `Formula` | `Unity.VisualScripting.Formula` | Math expression. Property: `formula` (string) |
+| `TriggerCustomEvent` | `Unity.VisualScripting.TriggerCustomEvent` | Fires custom events. Property: `argumentCount` |
 
 ---
 
 ## 3. Port Name Reference
+
+Port keys are the exact strings used in `sourceKey`/`destinationKey` of connections.
 
 ### Event Units
 
@@ -205,16 +232,27 @@ All event units: `trigger` (ControlOutput)
 | `enter` | ControlInput | `"enter"` |
 | `exit` | ControlOutput | `"exit"` |
 | `target` | ValueInput | `"target"` |
-| `inputParameters[n]` | ValueInput | `"%paramName"` or indexed |
+| parameter N | ValueInput | `"%paramName"` |
 | `result` | ValueOutput | `"result"` |
 | `targetOutput` | ValueOutput | `"targetOutput"` |
-| `outputParameters[n]` | ValueOutput | indexed |
+
+Parameter port keys are prefixed with `%` and match the `parameterNames` array (e.g., `%message`, `%xAngle`, `%value`).
+
+**Note**: `targetOutput` is null for void instance methods. `result` does not exist for void methods.
 
 ### Literal
 
 | Port | Type | Key |
 |------|------|-----|
 | `output` | ValueOutput | `"output"` |
+
+### ScalarSum / GenericSum
+
+| Port | Type | Key |
+|------|------|-----|
+| input 0 | ValueInput | `"0"` |
+| input 1 | ValueInput | `"1"` |
+| `sum` | ValueOutput | `"sum"` |
 
 ### ScalarMultiply
 
@@ -250,7 +288,7 @@ All event units: `trigger` (ControlOutput)
 | Port | Type | Key |
 |------|------|-----|
 | `enter` | ControlInput | `"enter"` |
-| `multiOutputs[n]` | ControlOutput | `"0"`, `"1"`, etc. |
+| output N | ControlOutput | `"0"`, `"1"`, etc. |
 
 ### Variable Units
 
@@ -264,71 +302,133 @@ All event units: `trigger` (ControlOutput)
 
 ---
 
-## 4. Member Class
+## 4. Member Object Format
 
-Describes a C# member for reflection-based access by `GetMember`, `SetMember`, `InvokeMember`.
+The `member` field describes a C# member for `GetMember`, `SetMember`, `InvokeMember`.
 
-### Constructors
+### JSON Format
 
-```csharp
-// Property or field (auto-detected)
-new Member(typeof(Time), nameof(Time.deltaTime))       // static
-new Member(typeof(Transform), "position")               // instance
+```json
+{
+  "name": "memberName",
+  "parameterTypes": ["System.Type1", "System.Type2"],
+  "targetType": "Full.Namespace.ClassName",
+  "targetTypeName": "Full.Namespace.ClassName",
+  "$version": "A"
+}
+```
 
-// Method (disambiguate overloads with param types)
-new Member(typeof(Debug), "Log", new[] { typeof(object) })
-new Member(typeof(Transform), "Rotate", new[] { typeof(float), typeof(float), typeof(float) })
-new Member(typeof(Transform), "Translate", new[] { typeof(Vector3) })
-new Member(typeof(Input), "GetKey", new[] { typeof(KeyCode) })
-new Member(typeof(Input), "GetAxis", new[] { typeof(string) })
-new Member(typeof(Physics), "Raycast", new[] { typeof(Vector3), typeof(Vector3), typeof(float) })
-new Member(typeof(GameObject), "SetActive", new[] { typeof(bool) })
-new Member(typeof(GameObject), "Find", new[] { typeof(string) })
-new Member(typeof(Object), "Instantiate", new[] { typeof(Object) })
-new Member(typeof(Object), "Destroy", new[] { typeof(Object) })
-new Member(typeof(Animator), "SetTrigger", new[] { typeof(string) })
-new Member(typeof(AudioSource), "PlayOneShot", new[] { typeof(AudioClip) })
-new Member(typeof(Mathf), "Clamp", new[] { typeof(float), typeof(float), typeof(float) })
-new Member(typeof(Vector3), "Distance", new[] { typeof(Vector3), typeof(Vector3) })
-new Member(typeof(Vector3), "Lerp", new[] { typeof(Vector3), typeof(Vector3), typeof(float) })
+- `parameterTypes`: array of type strings for methods, `null` for properties/fields
+- `targetType` and `targetTypeName` are always identical
+
+### Common Member Examples
+
+#### Static Properties
+
+```json
+{"name": "deltaTime", "parameterTypes": null, "targetType": "UnityEngine.Time", "targetTypeName": "UnityEngine.Time", "$version": "A"}
+{"name": "time", "parameterTypes": null, "targetType": "UnityEngine.Time", "targetTypeName": "UnityEngine.Time", "$version": "A"}
+```
+
+#### Instance Properties
+
+```json
+{"name": "position", "parameterTypes": null, "targetType": "UnityEngine.Transform", "targetTypeName": "UnityEngine.Transform", "$version": "A"}
+{"name": "rotation", "parameterTypes": null, "targetType": "UnityEngine.Transform", "targetTypeName": "UnityEngine.Transform", "$version": "A"}
+{"name": "gameObject", "parameterTypes": null, "targetType": "UnityEngine.Component", "targetTypeName": "UnityEngine.Component", "$version": "A"}
+{"name": "name", "parameterTypes": null, "targetType": "UnityEngine.GameObject", "targetTypeName": "UnityEngine.GameObject", "$version": "A"}
+{"name": "material", "parameterTypes": null, "targetType": "UnityEngine.Renderer", "targetTypeName": "UnityEngine.Renderer", "$version": "A"}
+{"name": "color", "parameterTypes": null, "targetType": "UnityEngine.Material", "targetTypeName": "UnityEngine.Material", "$version": "A"}
+```
+
+#### Static Methods
+
+```json
+{"name": "Log", "parameterTypes": ["System.Object"], "targetType": "UnityEngine.Debug", "targetTypeName": "UnityEngine.Debug", "$version": "A"}
+{"name": "LogWarning", "parameterTypes": ["System.Object"], "targetType": "UnityEngine.Debug", "targetTypeName": "UnityEngine.Debug", "$version": "A"}
+{"name": "LogError", "parameterTypes": ["System.Object"], "targetType": "UnityEngine.Debug", "targetTypeName": "UnityEngine.Debug", "$version": "A"}
+{"name": "GetKey", "parameterTypes": ["UnityEngine.KeyCode"], "targetType": "UnityEngine.Input", "targetTypeName": "UnityEngine.Input", "$version": "A"}
+{"name": "GetKeyDown", "parameterTypes": ["UnityEngine.KeyCode"], "targetType": "UnityEngine.Input", "targetTypeName": "UnityEngine.Input", "$version": "A"}
+{"name": "GetAxis", "parameterTypes": ["System.String"], "targetType": "UnityEngine.Input", "targetTypeName": "UnityEngine.Input", "$version": "A"}
+{"name": "Find", "parameterTypes": ["System.String"], "targetType": "UnityEngine.GameObject", "targetTypeName": "UnityEngine.GameObject", "$version": "A"}
+{"name": "Instantiate", "parameterTypes": ["UnityEngine.Object"], "targetType": "UnityEngine.Object", "targetTypeName": "UnityEngine.Object", "$version": "A"}
+{"name": "Destroy", "parameterTypes": ["UnityEngine.Object"], "targetType": "UnityEngine.Object", "targetTypeName": "UnityEngine.Object", "$version": "A"}
+{"name": "Distance", "parameterTypes": ["UnityEngine.Vector3", "UnityEngine.Vector3"], "targetType": "UnityEngine.Vector3", "targetTypeName": "UnityEngine.Vector3", "$version": "A"}
+{"name": "Lerp", "parameterTypes": ["UnityEngine.Vector3", "UnityEngine.Vector3", "System.Single"], "targetType": "UnityEngine.Vector3", "targetTypeName": "UnityEngine.Vector3", "$version": "A"}
+{"name": "Clamp", "parameterTypes": ["System.Single", "System.Single", "System.Single"], "targetType": "UnityEngine.Mathf", "targetTypeName": "UnityEngine.Mathf", "$version": "A"}
+```
+
+#### Instance Methods
+
+```json
+{"name": "Rotate", "parameterTypes": ["System.Single", "System.Single", "System.Single"], "targetType": "UnityEngine.Transform", "targetTypeName": "UnityEngine.Transform", "$version": "A"}
+{"name": "Translate", "parameterTypes": ["UnityEngine.Vector3"], "targetType": "UnityEngine.Transform", "targetTypeName": "UnityEngine.Transform", "$version": "A"}
+{"name": "LookAt", "parameterTypes": ["UnityEngine.Transform"], "targetType": "UnityEngine.Transform", "targetTypeName": "UnityEngine.Transform", "$version": "A"}
+{"name": "SetActive", "parameterTypes": ["System.Boolean"], "targetType": "UnityEngine.GameObject", "targetTypeName": "UnityEngine.GameObject", "$version": "A"}
+{"name": "AddForce", "parameterTypes": ["UnityEngine.Vector3"], "targetType": "UnityEngine.Rigidbody", "targetTypeName": "UnityEngine.Rigidbody", "$version": "A"}
+{"name": "SetTrigger", "parameterTypes": ["System.String"], "targetType": "UnityEngine.Animator", "targetTypeName": "UnityEngine.Animator", "$version": "A"}
+{"name": "SetBool", "parameterTypes": ["System.String", "System.Boolean"], "targetType": "UnityEngine.Animator", "targetTypeName": "UnityEngine.Animator", "$version": "A"}
+{"name": "SetFloat", "parameterTypes": ["System.String", "System.Single"], "targetType": "UnityEngine.Animator", "targetTypeName": "UnityEngine.Animator", "$version": "A"}
+{"name": "Play", "parameterTypes": [], "targetType": "UnityEngine.AudioSource", "targetTypeName": "UnityEngine.AudioSource", "$version": "A"}
+{"name": "PlayOneShot", "parameterTypes": ["UnityEngine.AudioClip"], "targetType": "UnityEngine.AudioSource", "targetTypeName": "UnityEngine.AudioSource", "$version": "A"}
+```
+
+#### System Methods
+
+```json
+{"name": "ToString", "parameterTypes": [], "targetType": "System.Object", "targetTypeName": "System.Object", "$version": "A"}
+{"name": "Concat", "parameterTypes": ["System.String", "System.String"], "targetType": "System.String", "targetTypeName": "System.String", "$version": "A"}
+{"name": "Parse", "parameterTypes": ["System.String"], "targetType": "System.Int32", "targetTypeName": "System.Int32", "$version": "A"}
+{"name": "GetType", "parameterTypes": [], "targetType": "System.Object", "targetTypeName": "System.Object", "$version": "A"}
+{"name": "CreateInstance", "parameterTypes": ["System.Type", "System.Int32"], "targetType": "System.Array", "targetTypeName": "System.Array", "$version": "A"}
+{"name": "SetValue", "parameterTypes": ["System.Object", "System.Int32"], "targetType": "System.Array", "targetTypeName": "System.Array", "$version": "A"}
 ```
 
 ### Static vs Instance
 
-- **Static**: no `target` port (e.g., `Time.deltaTime`, `Debug.Log`, `Input.GetKey`)
-- **Instance**: has `target` port (e.g., `Transform.position`, `Transform.Rotate`)
+- **Static**: no `target` port, no `"target"` in defaultValues (e.g., `Time.deltaTime`, `Debug.Log`)
+- **Instance**: has `target` port, `"target": null` in defaultValues (e.g., `Transform.position`, `Transform.Rotate`)
 - When `target` is unconnected on a ScriptMachine, it auto-resolves to the component on the owning GameObject
 
 ---
 
-## 5. Connection API
+## 5. Connection Format
 
-### Control Connections
+### Control Connection
 
-```csharp
-// ControlOutput -> ControlInput
-graph.controlConnections.Add(new ControlConnection(source.trigger, dest.enter));
+```json
+{
+  "sourceUnit": {"$ref": "1"},
+  "sourceKey": "trigger",
+  "destinationUnit": {"$ref": "2"},
+  "destinationKey": "enter",
+  "guid": "UUID_HERE",
+  "$type": "Unity.VisualScripting.ControlConnection"
+}
 ```
 
+- ControlOutput → ControlInput
 - ControlOutput: **single** outgoing connection only (use `Sequence` to fan out)
 - ControlInput: multiple incoming connections allowed
+- No `$id` on connections
 
-### Value Connections
+### Value Connection
 
-```csharp
-// ValueOutput -> ValueInput
-graph.valueConnections.Add(new ValueConnection(source.output, dest.input));
+```json
+{
+  "sourceUnit": {"$ref": "3"},
+  "sourceKey": "output",
+  "destinationUnit": {"$ref": "2"},
+  "destinationKey": "%message",
+  "guid": "UUID_HERE",
+  "$type": "Unity.VisualScripting.ValueConnection"
+}
 ```
 
+- ValueOutput → ValueInput
 - ValueInput: **single** incoming connection only
 - ValueOutput: multiple outgoing connections allowed
-
-### Alternative
-
-```csharp
-source.trigger.ConnectToValid(dest.enter);
-source.output.ConnectToValid(dest.input);
-```
+- No `$id` on connections
 
 ---
 
@@ -336,99 +436,108 @@ source.output.ConnectToValid(dest.input);
 
 ### Declaring Graph Variables
 
-```csharp
-graph.variables.Set("health", 100);
-graph.variables.Set("speed", 5.5f);
-graph.variables.Set("name", "Player");
-graph.variables.Set("isAlive", true);
-graph.variables.Set("dir", Vector3.zero);
+Add variables to the JSON root `graph.variables.collection.$content` array:
+
+```json
+"variables": {
+  "Kind": "Flow",
+  "collection": {
+    "$content": [
+      {"name": "health", "value": {"$content": 100, "$type": "System.Int32"}, "$version": "A"},
+      {"name": "speed", "value": {"$content": 5.5, "$type": "System.Single"}, "$version": "A"},
+      {"name": "name", "value": {"$content": "Player", "$type": "System.String"}, "$version": "A"},
+      {"name": "isAlive", "value": {"$content": true, "$type": "System.Boolean"}, "$version": "A"},
+      {"name": "dir", "value": {"x": 0.0, "y": 0.0, "z": 0.0, "$type": "UnityEngine.Vector3"}, "$version": "A"}
+    ],
+    "$version": "A"
+  },
+  "$version": "A"
+}
 ```
 
-### VariableKind Enum
+### VariableKind Values
 
-| Kind | Scope |
-|------|-------|
-| `VariableKind.Flow` | Current execution only |
-| `VariableKind.Graph` | Current graph instance |
-| `VariableKind.Object` | Per GameObject (needs Variables component) |
-| `VariableKind.Scene` | Per scene |
-| `VariableKind.Application` | Cross-scene, until app closes |
-| `VariableKind.Saved` | Persistent (PlayerPrefs) |
+| Kind String | Scope |
+|-------------|-------|
+| `"Flow"` | Current execution only |
+| `"Graph"` | Current graph instance |
+| `"Object"` | Per GameObject (needs Variables component) |
+| `"Scene"` | Per scene |
+| `"Application"` | Cross-scene, until app closes |
+| `"Saved"` | Persistent (PlayerPrefs) |
 
-### Runtime C# Access
+### Variable Unit JSON
 
-```csharp
-Variables.Object(gameObject).Set("health", 100);
-int health = (int)Variables.Object(gameObject).Get("health");
-Variables.ActiveScene.Set("score", 0);
-Variables.Application.Set("highScore", 9999);
-Variables.Saved.Set("bestTime", 120.5f);
+```json
+{
+  "kind": "Graph",
+  "defaultValues": {
+    "name": {"$content": "health", "$type": "System.String"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "UUID_HERE",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.GetVariable",
+  "$id": "N"
+}
 ```
 
 ---
 
-## 7. Machine Components
+## 7. Assignment to GameObjects
 
-### ScriptMachine (FlowGraph)
+After generating a `.asset` file, assignment is manual in the Unity Editor:
 
-```csharp
-var machine = go.AddComponent<ScriptMachine>();
-machine.nest.source = GraphSource.Macro;
-machine.nest.macro = graphAsset;  // ScriptGraphAsset
-EditorUtility.SetDirty(go);
-```
+1. Place the `.asset` file in the project (e.g., `Assets/VisualScripting/`)
+2. Unity auto-imports the asset when the Editor gains focus
+3. Select the target GameObject in the Scene
+4. In the Inspector, add a **Script Machine** component (or **State Machine** for StateGraphAsset)
+5. Set **Source** to **Graph** (Macro)
+6. Drag the `.asset` file into the **Graph** field
 
-### StateMachine (StateGraph)
-
-```csharp
-var machine = go.AddComponent<StateMachine>();
-machine.nest.source = GraphSource.Macro;
-machine.nest.macro = stateAsset;  // StateGraphAsset
-EditorUtility.SetDirty(go);
-```
-
-### GraphSource
-
-| Source | Storage | When to Use |
-|--------|---------|-------------|
-| `GraphSource.Macro` | External `.asset` file | Reusable across objects |
-| `GraphSource.Embed` | Serialized in component | Unique to object, supports scene refs |
+No C# editor script is needed for assignment.
 
 ---
 
-## 8. Asset Management
+## 8. File Writing
 
-```csharp
-// Create folder
-if (!AssetDatabase.IsValidFolder("Assets/VisualScripting"))
-    AssetDatabase.CreateFolder("Assets", "VisualScripting");
+### Where to Save
 
-// Create asset
-AssetDatabase.CreateAsset(graphAsset, "Assets/VisualScripting/MyGraph.asset");
-AssetDatabase.SaveAssets();
-AssetDatabase.Refresh();
+```
+Assets/VisualScripting/{GraphName}.asset
+```
 
-// Load existing
-var asset = AssetDatabase.LoadAssetAtPath<ScriptGraphAsset>(path);
+Create the directory first if it does not exist:
+```bash
+mkdir -p Assets/VisualScripting
+```
 
-// Modify existing
-EditorUtility.SetDirty(asset);
-AssetDatabase.SaveAssets();
+### Generating the File
 
-// Undo support
-Undo.RecordObject(graphAsset, "Modify graph");
+1. Build the elements array (units + connections) with proper `$id`/`$ref` references
+2. Construct the full JSON graph object
+3. Minify the JSON to a single line (no newlines within the JSON)
+4. Wrap in the YAML boilerplate template
+5. Write to `.asset` file
 
-// Save specific asset only (Unity 2020.3+)
-AssetDatabase.SaveAssetIfDirty(asset);
+### UUID Generation
+
+Every unit and connection needs a unique UUID v4:
+```bash
+uuidgen | tr '[:upper:]' '[:lower:]'
 ```
 
 ### Common Pitfalls
 
-1. Always call `EditorUtility.SetDirty()` + `AssetDatabase.SaveAssets()` after modifications
-2. Asset path must end in `.asset` and be relative to project root (`Assets/...`)
-3. Port access works after `graph.units.Add(unit)` (unit must be added first)
-4. ControlOutput supports only 1 connection - use `Sequence` to fan out
-5. Never reference `UnityEditor` types in runtime graphs (causes build errors)
-6. All editor API calls must run on the main Unity thread
-7. Variable units have NO `defaultName` property — set `kind` before `graph.units.Add()`, then set `defaultValues["name"]` after Add
-8. Generic math units (`GenericMultiply`, `GenericSum`, etc.) use same port names as scalar versions (`product`, `sum`, `difference`, `quotient`), NOT `result`
+1. **JSON must be single-line** — no newlines inside the `_json` YAML value
+2. **YAML single-quote escaping** — single quotes in JSON string values become `''` (e.g., `it''s`)
+3. **$id must be unique** — use sequential integers as strings (`"1"`, `"2"`, ...)
+4. **guid must be unique** — every unit AND connection needs its own UUID v4
+5. **Port keys are case-sensitive** — `"trigger"` not `"Trigger"`, `"%message"` not `"message"`
+6. **InvokeMember parameter keys need %** — `"%message"` not `"message"` in connection destinationKey
+7. **ScalarSum input keys are index strings** — `"0"`, `"1"` (NOT `"a"`, `"b"`)
+8. **Connections do NOT have $id** — only units get `$id`
+9. **Static members have no target port** — do not include `"target"` in defaultValues
+10. **Void methods have no result port** — do not wire `"result"` from void InvokeMember
+11. **All units need $version: "A"** — and all member objects too
+12. **Position layout** — ~250px horizontal spacing, ~150px vertical between related units
