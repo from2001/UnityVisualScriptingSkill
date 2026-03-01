@@ -65,7 +65,7 @@ All classes in `Unity.VisualScripting` namespace.
 | `OnTriggerEnter2D` | `trigger` | `collider` | 2D trigger |
 | `OnCollisionEnter2D` | `trigger` | `collider` | 2D collision |
 | `OnKeyboardInput` | `trigger` | - | Properties: `key` (KeyCode), `action` (PressState) |
-| `CustomEvent` | `trigger` | `arg_0`..`arg_N` | Set `argumentCount` property |
+| `CustomEvent` | `trigger` | `argument_0`..`argument_N` | Set `argumentCount` property |
 
 ### Member Access Units
 
@@ -94,24 +94,24 @@ Port: `output` (ValueOutput)
 
 ### Scalar Math
 
-| Class | ValueInput | ValueOutput |
-|-------|-----------|------------|
-| `ScalarAdd` | `a`, `b` | `sum` |
-| `ScalarSubtract` | `minuend`, `subtrahend` | `difference` |
-| `ScalarMultiply` | `a`, `b` | `product` |
-| `ScalarDivide` | `dividend`, `divisor` | `quotient` |
-| `ScalarModulo` | `dividend`, `divisor` | `remainder` |
+| Class | ValueInput | ValueOutput | Notes |
+|-------|-----------|------------|-------|
+| `ScalarSum` | `0`, `1` | `sum` | `ScalarAdd` does not exist. Set `inputCount` for more inputs |
+| `ScalarSubtract` | `minuend`, `subtrahend` | `difference` | |
+| `ScalarMultiply` | `a`, `b` | `product` | |
+| `ScalarDivide` | `dividend`, `divisor` | `quotient` | |
+| `ScalarModulo` | `dividend`, `divisor` | `remainder` | |
 
-Multi-input variants: `ScalarSum`, `ScalarMultiply` (set `inputCount` property)
+`ScalarSum` extends `MultiInputUnit<float>` — input port keys are `"0"`, `"1"`, etc. (C# accessor: `multiInputs[0]`). Set `inputCount` property for more than 2 inputs.
 
 ### Generic Arithmetic
 
-| Class | ValueInput | ValueOutput |
-|-------|-----------|------------|
-| `GenericSum` | `a`, `b` | `sum` |
-| `GenericSubtract` | `minuend`, `subtrahend` | `difference` |
-| `GenericMultiply` | `a`, `b` | `product` |
-| `GenericDivide` | `dividend`, `divisor` | `quotient` |
+| Class | ValueInput | ValueOutput | Notes |
+|-------|-----------|------------|-------|
+| `GenericSum` | `0`, `1` | `sum` | MultiInputUnit — set `inputCount` for more inputs |
+| `GenericSubtract` | `minuend`, `subtrahend` | `difference` | |
+| `GenericMultiply` | `a`, `b` | `product` | |
+| `GenericDivide` | `dividend`, `divisor` | `quotient` | |
 
 ### Flow Control
 
@@ -141,17 +141,21 @@ Multi-input variants: `ScalarSum`, `ScalarMultiply` (set `inputCount` property)
 
 ### Logic / Comparison
 
-| Class | ValueIn | ValueOut |
-|-------|---------|---------|
-| `And` | `a`, `b` | `result` (bool) |
-| `Or` | `a`, `b` | `result` (bool) |
-| `Negate` | `input` | `output` (bool) |
-| `Equal` | `a`, `b` | `comparison` (bool) |
-| `NotEqual` | `a`, `b` | `comparison` (bool) |
-| `Greater` | `a`, `b` | `comparison` (bool) |
-| `Less` | `a`, `b` | `comparison` (bool) |
-| `GreaterOrEqual` | `a`, `b` | `comparison` (bool) |
-| `LessOrEqual` | `a`, `b` | `comparison` (bool) |
+| Class | ValueIn | ValueOut (C# accessor) | Port Key |
+|-------|---------|----------------------|----------|
+| `And` | `a`, `b` | `result` (bool) | `"result"` |
+| `Or` | `a`, `b` | `result` (bool) | `"result"` |
+| `Negate` | `input` | `output` (bool) | `"output"` |
+| `Equal` | `a`, `b` | **`comparison`** (bool) | `"equal"` |
+| `NotEqual` | `a`, `b` | **`comparison`** (bool) | `"notEqual"` |
+| `Greater` | `a`, `b` | `comparison` (bool) | `"comparison"` |
+| `Less` | `a`, `b` | `comparison` (bool) | `"comparison"` |
+| `GreaterOrEqual` | `a`, `b` | `comparison` (bool) | `"comparison"` |
+| `LessOrEqual` | `a`, `b` | `comparison` (bool) | `"comparison"` |
+
+**CRITICAL — Port key vs C# accessor mismatch**: All `BinaryComparisonUnit` subclasses (`Equal`, `NotEqual`, `Greater`, `Less`, `GreaterOrEqual`, `LessOrEqual`) use the **C# property `comparison`** (inherited from `BinaryComparisonUnit`) to access their output port. However, `Equal` and `NotEqual` override the **port key** (string identifier) to `"equal"` and `"notEqual"` respectively for backward compatibility. In generated code, always use the C# accessor:
+- `equal.comparison` (NOT ~~`equal.equal`~~)
+- `notEqual.comparison` (NOT ~~`notEqual.notEqual`~~)
 
 ### Time Units
 
@@ -204,17 +208,27 @@ All event units: `trigger` (ControlOutput)
 |------|------|-----|
 | `enter` | ControlInput | `"enter"` |
 | `exit` | ControlOutput | `"exit"` |
-| `target` | ValueInput | `"target"` |
-| `inputParameters[n]` | ValueInput | `"%paramName"` or indexed |
-| `result` | ValueOutput | `"result"` |
-| `targetOutput` | ValueOutput | `"targetOutput"` |
-| `outputParameters[n]` | ValueOutput | indexed |
+| `target` | ValueInput | `"target"` (instance members only, omitted for static) |
+| `inputParameters[n]` | ValueInput | `"%paramName"` (e.g., `"%x"`, `"%y"`, `"%z"` for Rotate) |
+| `result` | ValueOutput | `"result"` (non-void methods only) |
+| `targetOutput` | ValueOutput | `"targetOutput"` (null for void instance methods) |
+| `outputParameters[n]` | ValueOutput | `"&paramName"` (out/ref parameters only) |
 
 ### Literal
 
 | Port | Type | Key |
 |------|------|-----|
 | `output` | ValueOutput | `"output"` |
+
+### ScalarSum / GenericSum (MultiInputUnit)
+
+| Port | Type | Key |
+|------|------|-----|
+| `multiInputs[0]` | ValueInput | `"0"` |
+| `multiInputs[1]` | ValueInput | `"1"` |
+| `sum` | ValueOutput | `"sum"` |
+
+Set `inputCount` property for more than 2 inputs. C# accessor: `unit.multiInputs[n]`, port key: `n.ToString()`.
 
 ### ScalarMultiply
 
@@ -250,7 +264,10 @@ All event units: `trigger` (ControlOutput)
 | Port | Type | Key |
 |------|------|-----|
 | `enter` | ControlInput | `"enter"` |
-| `multiOutputs[n]` | ControlOutput | `"0"`, `"1"`, etc. |
+| `multiOutputs[0]` | ControlOutput | `"0"` |
+| `multiOutputs[1]` | ControlOutput | `"1"` |
+
+Set `outputCount` property (default 2, max 10). C# accessor: `seq.multiOutputs[n]`, port key: `n.ToString()`.
 
 ### Variable Units
 
@@ -271,26 +288,49 @@ Describes a C# member for reflection-based access by `GetMember`, `SetMember`, `
 ### Constructors
 
 ```csharp
-// Property or field (auto-detected)
-new Member(typeof(Time), nameof(Time.deltaTime))       // static
-new Member(typeof(Transform), "position")               // instance
+// --- Static Properties ---
+new Member(typeof(Time), nameof(Time.deltaTime))       // float (read-only)
+new Member(typeof(Time), nameof(Time.time))             // float (read-only)
 
-// Method (disambiguate overloads with param types)
+// --- Instance Properties ---
+new Member(typeof(Transform), "position")               // Vector3
+new Member(typeof(Transform), "rotation")               // Quaternion
+new Member(typeof(Component), "gameObject")             // GameObject
+new Member(typeof(Object), "name")                      // string
+new Member(typeof(Renderer), "material")                // Material
+new Member(typeof(Material), "color")                   // Color
+
+// --- Static Methods ---
 new Member(typeof(Debug), "Log", new[] { typeof(object) })
-new Member(typeof(Transform), "Rotate", new[] { typeof(float), typeof(float), typeof(float) })
-new Member(typeof(Transform), "Translate", new[] { typeof(Vector3) })
+new Member(typeof(Debug), "LogWarning", new[] { typeof(object) })
+new Member(typeof(Debug), "LogError", new[] { typeof(object) })
 new Member(typeof(Input), "GetKey", new[] { typeof(KeyCode) })
+new Member(typeof(Input), "GetKeyDown", new[] { typeof(KeyCode) })
 new Member(typeof(Input), "GetAxis", new[] { typeof(string) })
 new Member(typeof(Physics), "Raycast", new[] { typeof(Vector3), typeof(Vector3), typeof(float) })
-new Member(typeof(GameObject), "SetActive", new[] { typeof(bool) })
 new Member(typeof(GameObject), "Find", new[] { typeof(string) })
 new Member(typeof(Object), "Instantiate", new[] { typeof(Object) })
 new Member(typeof(Object), "Destroy", new[] { typeof(Object) })
-new Member(typeof(Animator), "SetTrigger", new[] { typeof(string) })
-new Member(typeof(AudioSource), "PlayOneShot", new[] { typeof(AudioClip) })
 new Member(typeof(Mathf), "Clamp", new[] { typeof(float), typeof(float), typeof(float) })
 new Member(typeof(Vector3), "Distance", new[] { typeof(Vector3), typeof(Vector3) })
 new Member(typeof(Vector3), "Lerp", new[] { typeof(Vector3), typeof(Vector3), typeof(float) })
+
+// --- Instance Methods ---
+new Member(typeof(Transform), "Rotate", new[] { typeof(float), typeof(float), typeof(float) })
+new Member(typeof(Transform), "Translate", new[] { typeof(Vector3) })
+new Member(typeof(Transform), "LookAt", new[] { typeof(Transform) })
+new Member(typeof(Rigidbody), "AddForce", new[] { typeof(Vector3) })
+new Member(typeof(GameObject), "SetActive", new[] { typeof(bool) })
+new Member(typeof(Animator), "SetTrigger", new[] { typeof(string) })
+new Member(typeof(Animator), "SetBool", new[] { typeof(string), typeof(bool) })
+new Member(typeof(Animator), "SetFloat", new[] { typeof(string), typeof(float) })
+new Member(typeof(AudioSource), "Play")
+new Member(typeof(AudioSource), "PlayOneShot", new[] { typeof(AudioClip) })
+
+// --- System Methods ---
+new Member(typeof(object), "ToString")
+new Member(typeof(string), "Concat", new[] { typeof(string), typeof(string) })
+new Member(typeof(object), "GetType")
 ```
 
 ### Static vs Instance
@@ -432,3 +472,5 @@ AssetDatabase.SaveAssetIfDirty(asset);
 6. All editor API calls must run on the main Unity thread
 7. Variable units have NO `defaultName` property — set `kind` before `graph.units.Add()`, then set `defaultValues["name"]` after Add
 8. Generic math units (`GenericMultiply`, `GenericSum`, etc.) use same port names as scalar versions (`product`, `sum`, `difference`, `quotient`), NOT `result`
+9. Void methods (e.g., `SetActive`, `Rotate`, `Play`) have no `result` port — do not attempt to wire `result`. For void instance methods, `targetOutput` is null — always null-check before wiring it
+10. **Port key ≠ C# accessor for comparison units**: `Equal` and `NotEqual` inherit their output from `BinaryComparisonUnit` as the C# property `comparison`, but override the port key string to `"equal"` / `"notEqual"`. Always use `equal.comparison` and `notEqual.comparison` in code — `equal.equal` does NOT exist and will cause CS1061
