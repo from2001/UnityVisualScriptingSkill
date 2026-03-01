@@ -342,6 +342,70 @@ These units are fully documented in `api_reference.md` and do NOT need source ve
 `And`, `Or`, `Negate`, `Equal`, `NotEqual`, `Greater`, `Less`, `GreaterOrEqual`, `LessOrEqual`,
 `WaitForSecondsUnit`, `WaitUntilUnit`, `Cooldown`, `This`
 
+## C# Code Validation (Pre-flight)
+
+Before returning generated C# code for Task 1 or Task 2, run the Roslyn-based validator to catch semantic errors.
+
+### When to Validate
+
+Validate ALL generated C# editor scripts. Do not skip even for simple scripts.
+
+### How to Run
+
+Save the generated C# to a temporary file and run:
+
+```bash
+python3 .claude/skills/unity-visual-scripting/tools/validate.py /tmp/vs_generated.cs
+```
+
+With a specific Unity version:
+
+```bash
+python3 .claude/skills/unity-visual-scripting/tools/validate.py /tmp/vs_generated.cs --unity-version 6000.0.68f1
+```
+
+With a Unity project (enables VS-specific type validation):
+
+```bash
+python3 .claude/skills/unity-visual-scripting/tools/validate.py /tmp/vs_generated.cs --unity-project /path/to/project
+```
+
+### What Validation Catches
+
+**Roslyn Layer** (full C# compilation against Unity DLLs):
+
+| Code | Catches | Example |
+|------|---------|---------|
+| CS0246 | Wrong type name | `typeof(Transfrm)` → should be `Transform` |
+| CS1061 | Wrong member name | `transform.positon` → should be `position` |
+| CS1503 | Wrong argument type | `Member(typeof(Transform), "Rotate", new[]{typeof(int)})` |
+| CS7036 | Missing required argument | Missing overload parameter |
+| CS0117 | Member not found on type | `Time.deltTime` → should be `deltaTime` |
+
+**Python Layer** (VS-specific runtime semantic checks):
+
+| Code | Catches | Example |
+|------|---------|---------|
+| VS-PORT-001 | Wrong comparison accessor | `equal.equal` → should be `equal.comparison` |
+| VS-PORT-002 | `.result` on void method | `debugLog.result` — `Debug.Log` is void |
+| VS-PORT-003 | `.a`/`.b` on multi-input unit | `scalarSum.a` → should be `scalarSum.multiInputs[0]` |
+
+### On Validation Failure
+
+1. Fix the specific lines indicated in the error output
+2. Re-run validation
+3. Only return code to the user when validation passes
+
+### First-Time Setup
+
+On first use, the validator builds automatically (~5 sec, downloads NuGet package). Subsequent runs use the cached build.
+
+### Requirements
+
+- .NET SDK 9.0+ (`dotnet` CLI available)
+- Unity Editor installed at `/Applications/Unity/Hub/Editor/`
+- Python 3
+
 ## References
 
 - **Detailed API Reference**: See [references/api_reference.md](references/api_reference.md) for complete port names, unit types catalog, variable system, and Member class details
