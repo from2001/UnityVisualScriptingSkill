@@ -1,2 +1,6 @@
 
 .DS_Store
+
+# RoslynValidator build artifacts
+.claude/skills/unity-visual-scripting/tools/RoslynValidator/bin/
+.claude/skills/unity-visual-scripting/tools/RoslynValidator/obj/
