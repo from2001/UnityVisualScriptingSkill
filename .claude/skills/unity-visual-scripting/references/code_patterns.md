@@ -26,6 +26,7 @@ using Unity.VisualScripting;
 12. [Audio](#12-audio)
 13. [Debug Logging](#13-debug-logging)
 14. [Graph Assignment](#14-graph-assignment)
+15. [JSON Graph Patterns (for Modification)](#15-json-graph-patterns-for-modification)
 
 ---
 
@@ -649,4 +650,537 @@ var machine = go.AddComponent<ScriptMachine>();
 machine.nest.source = GraphSource.Embed;
 machine.nest.embed = FlowGraph.WithStartUpdate();
 EditorUtility.SetDirty(go);
+```
+
+---
+
+## 15. JSON Graph Patterns (for Modification)
+
+JSON patterns for directly editing `.asset` files. Each example shows the `elements` array content. Wrap in the YAML boilerplate + JSON root structure (see `api_reference.md` Section 9).
+
+### YAML Boilerplate Template
+
+```yaml
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e66c6366d904e98bc83428217d4fd7, type: 3}
+  m_Name: GRAPH_NAME
+  m_EditorClassIdentifier:
+  _data:
+    _json: 'JSON_CONTENT_HERE'
+    _objectReferences: []
+```
+
+### JSON Root Structure
+
+```json
+{"graph":{"variables":{"Kind":"Flow","collection":{"$content":[],"$version":"A"},"$version":"A"},"controlInputDefinitions":[],"controlOutputDefinitions":[],"valueInputDefinitions":[],"valueOutputDefinitions":[],"title":null,"summary":null,"pan":{"x":0.0,"y":0.0},"zoom":1.0,"elements":[...ELEMENTS...],"$version":"A"}}
+```
+
+### Start -> Debug.Log (simplest pattern)
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Start",
+    "$id": "1"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 300.0, "y": 0.0},
+    "guid": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "2"
+  },
+  {
+    "type": "System.String",
+    "value": {"$content": "Hello from YAML!", "$type": "System.String"},
+    "defaultValues": {},
+    "position": {"x": 100.0, "y": 150.0},
+    "guid": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "3"
+  },
+  {
+    "sourceUnit": {"$ref": "1"},
+    "sourceKey": "trigger",
+    "destinationUnit": {"$ref": "2"},
+    "destinationKey": "enter",
+    "guid": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "$type": "Unity.VisualScripting.ControlConnection"
+  },
+  {
+    "sourceUnit": {"$ref": "3"},
+    "sourceKey": "output",
+    "destinationUnit": {"$ref": "2"},
+    "destinationKey": "%message",
+    "guid": "e5f6a7b8-c9d0-1234-efab-345678901234",
+    "$type": "Unity.VisualScripting.ValueConnection"
+  }
+]
+```
+
+### Update -> Transform.Rotate (full example)
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": -300.0, "y": 0.0},
+    "guid": "11111111-1111-1111-1111-111111111111",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Update",
+    "$id": "1"
+  },
+  {
+    "member": {
+      "name": "deltaTime",
+      "parameterTypes": null,
+      "targetType": "UnityEngine.Time",
+      "targetTypeName": "UnityEngine.Time",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": -500.0, "y": 200.0},
+    "guid": "22222222-2222-2222-2222-222222222222",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.GetMember",
+    "$id": "2"
+  },
+  {
+    "type": "System.Single",
+    "value": {"$content": 10.0, "$type": "System.Single"},
+    "defaultValues": {},
+    "position": {"x": -500.0, "y": 100.0},
+    "guid": "33333333-3333-3333-3333-333333333333",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "3"
+  },
+  {
+    "type": "System.Single",
+    "value": {"$content": 20.0, "$type": "System.Single"},
+    "defaultValues": {},
+    "position": {"x": -500.0, "y": 300.0},
+    "guid": "44444444-4444-4444-4444-444444444444",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "4"
+  },
+  {
+    "type": "System.Single",
+    "value": {"$content": 5.0, "$type": "System.Single"},
+    "defaultValues": {},
+    "position": {"x": -500.0, "y": 400.0},
+    "guid": "55555555-5555-5555-5555-555555555555",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "5"
+  },
+  {
+    "defaultValues": {
+      "a": {"$content": 0.0, "$type": "System.Single"},
+      "b": {"$content": 0.0, "$type": "System.Single"}
+    },
+    "position": {"x": -200.0, "y": 100.0},
+    "guid": "66666666-6666-6666-6666-666666666666",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.ScalarMultiply",
+    "$id": "6"
+  },
+  {
+    "defaultValues": {
+      "a": {"$content": 0.0, "$type": "System.Single"},
+      "b": {"$content": 0.0, "$type": "System.Single"}
+    },
+    "position": {"x": -200.0, "y": 300.0},
+    "guid": "77777777-7777-7777-7777-777777777777",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.ScalarMultiply",
+    "$id": "7"
+  },
+  {
+    "defaultValues": {
+      "a": {"$content": 0.0, "$type": "System.Single"},
+      "b": {"$content": 0.0, "$type": "System.Single"}
+    },
+    "position": {"x": -200.0, "y": 400.0},
+    "guid": "88888888-8888-8888-8888-888888888888",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.ScalarMultiply",
+    "$id": "8"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["xAngle", "yAngle", "zAngle"],
+    "member": {
+      "name": "Rotate",
+      "parameterTypes": ["System.Single", "System.Single", "System.Single"],
+      "targetType": "UnityEngine.Transform",
+      "targetTypeName": "UnityEngine.Transform",
+      "$version": "A"
+    },
+    "defaultValues": {
+      "target": null,
+      "%xAngle": {"$content": 0.0, "$type": "System.Single"},
+      "%yAngle": {"$content": 0.0, "$type": "System.Single"},
+      "%zAngle": {"$content": 0.0, "$type": "System.Single"}
+    },
+    "position": {"x": 150.0, "y": 0.0},
+    "guid": "99999999-9999-9999-9999-999999999999",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "9"
+  },
+  {"sourceUnit":{"$ref":"1"},"sourceKey":"trigger","destinationUnit":{"$ref":"9"},"destinationKey":"enter","guid":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","$type":"Unity.VisualScripting.ControlConnection"},
+  {"sourceUnit":{"$ref":"3"},"sourceKey":"output","destinationUnit":{"$ref":"6"},"destinationKey":"a","guid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"2"},"sourceKey":"value","destinationUnit":{"$ref":"6"},"destinationKey":"b","guid":"cccccccc-cccc-cccc-cccc-cccccccccccc","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"4"},"sourceKey":"output","destinationUnit":{"$ref":"7"},"destinationKey":"a","guid":"dddddddd-dddd-dddd-dddd-dddddddddddd","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"2"},"sourceKey":"value","destinationUnit":{"$ref":"7"},"destinationKey":"b","guid":"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"5"},"sourceKey":"output","destinationUnit":{"$ref":"8"},"destinationKey":"a","guid":"ffffffff-ffff-ffff-ffff-ffffffffffff","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"2"},"sourceKey":"value","destinationUnit":{"$ref":"8"},"destinationKey":"b","guid":"01010101-0101-0101-0101-010101010101","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"6"},"sourceKey":"product","destinationUnit":{"$ref":"9"},"destinationKey":"%xAngle","guid":"02020202-0202-0202-0202-020202020202","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"7"},"sourceKey":"product","destinationUnit":{"$ref":"9"},"destinationKey":"%yAngle","guid":"03030303-0303-0303-0303-030303030303","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"8"},"sourceKey":"product","destinationUnit":{"$ref":"9"},"destinationKey":"%zAngle","guid":"04040404-0404-0404-0404-040404040404","$type":"Unity.VisualScripting.ValueConnection"}
+]
+```
+
+### OnTriggerEnter -> Action
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {"target": null},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "aaa11111-1111-1111-1111-111111111111",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.OnTriggerEnter",
+    "$id": "1"
+  },
+  {
+    "chainable": false,
+    "parameterNames": ["message"],
+    "member": {
+      "name": "Log",
+      "parameterTypes": ["System.Object"],
+      "targetType": "UnityEngine.Debug",
+      "targetTypeName": "UnityEngine.Debug",
+      "$version": "A"
+    },
+    "defaultValues": {},
+    "position": {"x": 300.0, "y": 0.0},
+    "guid": "aaa22222-2222-2222-2222-222222222222",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.InvokeMember",
+    "$id": "2"
+  },
+  {
+    "type": "System.String",
+    "value": {"$content": "Trigger entered!", "$type": "System.String"},
+    "defaultValues": {},
+    "position": {"x": 100.0, "y": 150.0},
+    "guid": "aaa33333-3333-3333-3333-333333333333",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Literal",
+    "$id": "3"
+  },
+  {"sourceUnit":{"$ref":"1"},"sourceKey":"trigger","destinationUnit":{"$ref":"2"},"destinationKey":"enter","guid":"aaa44444-4444-4444-4444-444444444444","$type":"Unity.VisualScripting.ControlConnection"},
+  {"sourceUnit":{"$ref":"3"},"sourceKey":"output","destinationUnit":{"$ref":"2"},"destinationKey":"%message","guid":"aaa55555-5555-5555-5555-555555555555","$type":"Unity.VisualScripting.ValueConnection"}
+]
+```
+
+### Get/Set Variable and Increment
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "bbb11111-1111-1111-1111-111111111111",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Start",
+    "$id": "1"
+  },
+  {
+    "kind": "Graph",
+    "defaultValues": {"name": {"$content": "counter", "$type": "System.String"}},
+    "position": {"x": 200.0, "y": 150.0},
+    "guid": "bbb22222-2222-2222-2222-222222222222",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.GetVariable",
+    "$id": "2"
+  },
+  {
+    "inputCount": 2,
+    "defaultValues": {"1": {"$content": 1, "$type": "System.Int32"}},
+    "position": {"x": 400.0, "y": 150.0},
+    "guid": "bbb33333-3333-3333-3333-333333333333",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.ScalarSum",
+    "$id": "3"
+  },
+  {
+    "kind": "Graph",
+    "defaultValues": {"name": {"$content": "counter", "$type": "System.String"}},
+    "position": {"x": 600.0, "y": 0.0},
+    "guid": "bbb44444-4444-4444-4444-444444444444",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.SetVariable",
+    "$id": "4"
+  },
+  {"sourceUnit":{"$ref":"1"},"sourceKey":"trigger","destinationUnit":{"$ref":"4"},"destinationKey":"assign","guid":"bbb55555-5555-5555-5555-555555555555","$type":"Unity.VisualScripting.ControlConnection"},
+  {"sourceUnit":{"$ref":"2"},"sourceKey":"value","destinationUnit":{"$ref":"3"},"destinationKey":"0","guid":"bbb66666-6666-6666-6666-666666666666","$type":"Unity.VisualScripting.ValueConnection"},
+  {"sourceUnit":{"$ref":"3"},"sourceKey":"sum","destinationUnit":{"$ref":"4"},"destinationKey":"input","guid":"bbb77777-7777-7777-7777-777777777777","$type":"Unity.VisualScripting.ValueConnection"}
+]
+```
+
+### If/Else Branch
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "ccc11111-1111-1111-1111-111111111111",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Update",
+    "$id": "1"
+  },
+  {
+    "defaultValues": {"condition": {"$content": false, "$type": "System.Boolean"}},
+    "position": {"x": 300.0, "y": 0.0},
+    "guid": "ccc22222-2222-2222-2222-222222222222",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.If",
+    "$id": "2"
+  },
+  {"sourceUnit":{"$ref":"1"},"sourceKey":"trigger","destinationUnit":{"$ref":"2"},"destinationKey":"enter","guid":"ccc33333-3333-3333-3333-333333333333","$type":"Unity.VisualScripting.ControlConnection"}
+]
+```
+
+Wire `condition` (ValueInput), `ifTrue`/`ifFalse` (ControlOutput) to additional units as needed.
+
+### Sequence (fan-out)
+
+```json
+[
+  {
+    "coroutine": false,
+    "defaultValues": {},
+    "position": {"x": 0.0, "y": 0.0},
+    "guid": "ddd11111-1111-1111-1111-111111111111",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Start",
+    "$id": "1"
+  },
+  {
+    "outputCount": 3,
+    "defaultValues": {},
+    "position": {"x": 250.0, "y": 0.0},
+    "guid": "ddd22222-2222-2222-2222-222222222222",
+    "$version": "A",
+    "$type": "Unity.VisualScripting.Sequence",
+    "$id": "2"
+  },
+  {"sourceUnit":{"$ref":"1"},"sourceKey":"trigger","destinationUnit":{"$ref":"2"},"destinationKey":"enter","guid":"ddd33333-3333-3333-3333-333333333333","$type":"Unity.VisualScripting.ControlConnection"}
+]
+```
+
+Output keys: `"0"`, `"1"`, `"2"`. Connect each to separate action units.
+
+### InvokeMember — Static Void Method (Debug.Log)
+
+```json
+{
+  "chainable": false,
+  "parameterNames": ["message"],
+  "member": {
+    "name": "Log",
+    "parameterTypes": ["System.Object"],
+    "targetType": "UnityEngine.Debug",
+    "targetTypeName": "UnityEngine.Debug",
+    "$version": "A"
+  },
+  "defaultValues": {},
+  "position": {"x": 300.0, "y": 0.0},
+  "guid": "eee11111-1111-1111-1111-111111111111",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "N"
+}
+```
+
+Static: no `target` in defaultValues. Void: no `result` port.
+
+### InvokeMember — Instance Method (Transform.Rotate)
+
+```json
+{
+  "chainable": false,
+  "parameterNames": ["xAngle", "yAngle", "zAngle"],
+  "member": {
+    "name": "Rotate",
+    "parameterTypes": ["System.Single", "System.Single", "System.Single"],
+    "targetType": "UnityEngine.Transform",
+    "targetTypeName": "UnityEngine.Transform",
+    "$version": "A"
+  },
+  "defaultValues": {
+    "target": null,
+    "%xAngle": {"$content": 0.0, "$type": "System.Single"},
+    "%yAngle": {"$content": 0.0, "$type": "System.Single"},
+    "%zAngle": {"$content": 0.0, "$type": "System.Single"}
+  },
+  "position": {"x": 150.0, "y": 0.0},
+  "guid": "eee22222-2222-2222-2222-222222222222",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "N"
+}
+```
+
+Instance: `"target": null` in defaultValues. Parameter defaults: `%`-prefixed.
+
+### InvokeMember — No-Parameter Instance Method (AudioSource.Play)
+
+```json
+{
+  "chainable": false,
+  "parameterNames": [],
+  "member": {
+    "name": "Play",
+    "parameterTypes": [],
+    "targetType": "UnityEngine.AudioSource",
+    "targetTypeName": "UnityEngine.AudioSource",
+    "$version": "A"
+  },
+  "defaultValues": {"target": null},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "eee33333-3333-3333-3333-333333333333",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "N"
+}
+```
+
+### GetMember — Static Property (Time.deltaTime)
+
+```json
+{
+  "member": {
+    "name": "deltaTime",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Time",
+    "targetTypeName": "UnityEngine.Time",
+    "$version": "A"
+  },
+  "defaultValues": {},
+  "position": {"x": -500.0, "y": 200.0},
+  "guid": "fff11111-1111-1111-1111-111111111111",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.GetMember",
+  "$id": "N"
+}
+```
+
+Static: `"defaultValues": {}`. `parameterTypes` is `null` for properties.
+
+### GetMember — Instance Property (Transform.position)
+
+```json
+{
+  "member": {
+    "name": "position",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Transform",
+    "targetTypeName": "UnityEngine.Transform",
+    "$version": "A"
+  },
+  "defaultValues": {"target": null},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "fff22222-2222-2222-2222-222222222222",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.GetMember",
+  "$id": "N"
+}
+```
+
+Instance: `"target": null` in defaultValues.
+
+### SetMember — Instance Property (Material.color)
+
+```json
+{
+  "chainable": false,
+  "member": {
+    "name": "color",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Material",
+    "targetTypeName": "UnityEngine.Material",
+    "$version": "A"
+  },
+  "defaultValues": {
+    "target": null,
+    "input": {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0, "$type": "UnityEngine.Color"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "fff33333-3333-3333-3333-333333333333",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.SetMember",
+  "$id": "N"
+}
+```
+
+### Literal Value Types
+
+```json
+// String
+{"type":"System.String","value":{"$content":"Hello","$type":"System.String"},"defaultValues":{},"position":{"x":0.0,"y":0.0},"guid":"...","$version":"A","$type":"Unity.VisualScripting.Literal","$id":"N"}
+
+// Float
+{"type":"System.Single","value":{"$content":3.14,"$type":"System.Single"},"defaultValues":{},"position":{"x":0.0,"y":0.0},"guid":"...","$version":"A","$type":"Unity.VisualScripting.Literal","$id":"N"}
+
+// Int
+{"type":"System.Int32","value":{"$content":42,"$type":"System.Int32"},"defaultValues":{},"position":{"x":0.0,"y":0.0},"guid":"...","$version":"A","$type":"Unity.VisualScripting.Literal","$id":"N"}
+
+// Bool
+{"type":"System.Boolean","value":{"$content":true,"$type":"System.Boolean"},"defaultValues":{},"position":{"x":0.0,"y":0.0},"guid":"...","$version":"A","$type":"Unity.VisualScripting.Literal","$id":"N"}
+
+// Vector3
+{"type":"UnityEngine.Vector3","value":{"x":1.0,"y":2.0,"z":3.0,"$type":"UnityEngine.Vector3"},"defaultValues":{},"position":{"x":0.0,"y":0.0},"guid":"...","$version":"A","$type":"Unity.VisualScripting.Literal","$id":"N"}
+
+// Color
+{"type":"UnityEngine.Color","value":{"r":1.0,"g":0.0,"b":0.0,"a":1.0,"$type":"UnityEngine.Color"},"defaultValues":{},"position":{"x":0.0,"y":0.0},"guid":"...","$version":"A","$type":"Unity.VisualScripting.Literal","$id":"N"}
+
+// Enum (KeyCode.Space = 32)
+{"type":"UnityEngine.KeyCode","value":{"$content":32,"$type":"UnityEngine.KeyCode"},"defaultValues":{},"position":{"x":0.0,"y":0.0},"guid":"...","$version":"A","$type":"Unity.VisualScripting.Literal","$id":"N"}
 ```
