@@ -10,6 +10,7 @@
 6. [Variable System](#6-variable-system)
 7. [Machine Components](#7-machine-components)
 8. [Asset Management](#8-asset-management)
+9. [YAML/JSON Format Reference (for Modification)](#9-yamljson-format-reference-for-modification)
 
 ---
 
@@ -474,3 +475,510 @@ AssetDatabase.SaveAssetIfDirty(asset);
 8. Generic math units (`GenericMultiply`, `GenericSum`, etc.) use same port names as scalar versions (`product`, `sum`, `difference`, `quotient`), NOT `result`
 9. Void methods (e.g., `SetActive`, `Rotate`, `Play`) have no `result` port — do not attempt to wire `result`. For void instance methods, `targetOutput` is null — always null-check before wiring it
 10. **Port key ≠ C# accessor for comparison units**: `Equal` and `NotEqual` inherit their output from `BinaryComparisonUnit` as the C# property `comparison`, but override the port key string to `"equal"` / `"notEqual"`. Always use `equal.comparison` and `notEqual.comparison` in code — `equal.equal` does NOT exist and will cause CS1061
+
+---
+
+## 9. YAML/JSON Format Reference (for Modification)
+
+ScriptGraphAsset `.asset` files are YAML-wrapped JSON. This section documents the format for directly reading and writing these files.
+
+### YAML Template Structure
+
+```yaml
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e66c6366d904e98bc83428217d4fd7, type: 3}
+  m_Name: GRAPH_NAME
+  m_EditorClassIdentifier:
+  _data:
+    _json: 'JSON_CONTENT_HERE'
+    _objectReferences: []
+```
+
+- `m_Script` guid `95e66c6366d904e98bc83428217d4fd7` is constant for all ScriptGraphAssets
+- `m_Name` must match the filename without `.asset`
+- `_json` value is the entire graph JSON on a **single line** inside YAML single quotes
+- Single quotes inside JSON string values must be escaped as `''` (YAML 1.1 rule)
+- `_objectReferences` is always `[]`
+
+### JSON Root Structure
+
+```json
+{
+  "graph": {
+    "variables": {
+      "Kind": "Flow",
+      "collection": {"$content": [], "$version": "A"},
+      "$version": "A"
+    },
+    "controlInputDefinitions": [],
+    "controlOutputDefinitions": [],
+    "valueInputDefinitions": [],
+    "valueOutputDefinitions": [],
+    "title": null,
+    "summary": null,
+    "pan": {"x": 0.0, "y": 0.0},
+    "zoom": 1.0,
+    "elements": [],
+    "$version": "A"
+  }
+}
+```
+
+The `elements` array is a flat list: all **units** first (with `$id`), then all **connections** (no `$id`).
+
+### `$id` / `$ref` System
+
+- Every **unit** gets a sequential `$id` as a string: `"1"`, `"2"`, `"3"`, ...
+- **Connections** reference units via `{"$ref": "N"}` where N is the unit's `$id`
+- **Connections do NOT have `$id`** — only units get `$id`
+- Every unit AND connection gets a unique `guid` (UUID v4, all lowercase)
+- `$version` is always `"A"` on units, member objects, and collection objects
+
+### Unit JSON Format
+
+Common fields for all units:
+
+```json
+{
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.ClassName",
+  "$id": "N"
+}
+```
+
+#### Event Units (Start, Update, FixedUpdate, etc.)
+
+```json
+{
+  "coroutine": false,
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Start",
+  "$id": "1"
+}
+```
+
+#### OnTriggerEnter / OnCollisionEnter (physics events)
+
+```json
+{
+  "coroutine": false,
+  "defaultValues": {"target": null},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.OnTriggerEnter",
+  "$id": "1"
+}
+```
+
+#### CustomEvent
+
+```json
+{
+  "argumentCount": 3,
+  "coroutine": false,
+  "defaultValues": {
+    "target": null,
+    "name": {"$content": "EventName", "$type": "System.String"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.CustomEvent",
+  "$id": "1"
+}
+```
+
+Value output port keys: `argument_0`, `argument_1`, ... (underscore separator).
+
+#### InvokeMember — Static Method
+
+```json
+{
+  "chainable": false,
+  "parameterNames": ["message"],
+  "member": {
+    "name": "Log",
+    "parameterTypes": ["System.Object"],
+    "targetType": "UnityEngine.Debug",
+    "targetTypeName": "UnityEngine.Debug",
+    "$version": "A"
+  },
+  "defaultValues": {},
+  "position": {"x": 300.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "2"
+}
+```
+
+No `target` in `defaultValues` for static methods.
+
+#### InvokeMember — Instance Method
+
+```json
+{
+  "chainable": false,
+  "parameterNames": ["xAngle", "yAngle", "zAngle"],
+  "member": {
+    "name": "Rotate",
+    "parameterTypes": ["System.Single", "System.Single", "System.Single"],
+    "targetType": "UnityEngine.Transform",
+    "targetTypeName": "UnityEngine.Transform",
+    "$version": "A"
+  },
+  "defaultValues": {
+    "target": null,
+    "%xAngle": {"$content": 0.0, "$type": "System.Single"},
+    "%yAngle": {"$content": 0.0, "$type": "System.Single"},
+    "%zAngle": {"$content": 0.0, "$type": "System.Single"}
+  },
+  "position": {"x": 150.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "3"
+}
+```
+
+Instance members have `"target": null` in `defaultValues`. Parameter defaults are `%`-prefixed.
+
+#### InvokeMember — No-Parameter Method
+
+```json
+{
+  "chainable": false,
+  "parameterNames": [],
+  "member": {
+    "name": "Play",
+    "parameterTypes": [],
+    "targetType": "UnityEngine.AudioSource",
+    "targetTypeName": "UnityEngine.AudioSource",
+    "$version": "A"
+  },
+  "defaultValues": {"target": null},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.InvokeMember",
+  "$id": "4"
+}
+```
+
+#### GetMember — Static Property
+
+```json
+{
+  "member": {
+    "name": "deltaTime",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Time",
+    "targetTypeName": "UnityEngine.Time",
+    "$version": "A"
+  },
+  "defaultValues": {},
+  "position": {"x": -500.0, "y": 200.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.GetMember",
+  "$id": "2"
+}
+```
+
+`parameterTypes` is `null` (not `[]`) for properties/fields. Output port key: `"value"`.
+
+#### GetMember — Instance Property
+
+```json
+{
+  "member": {
+    "name": "position",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Transform",
+    "targetTypeName": "UnityEngine.Transform",
+    "$version": "A"
+  },
+  "defaultValues": {"target": null},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.GetMember",
+  "$id": "3"
+}
+```
+
+#### SetMember
+
+```json
+{
+  "chainable": false,
+  "member": {
+    "name": "color",
+    "parameterTypes": null,
+    "targetType": "UnityEngine.Material",
+    "targetTypeName": "UnityEngine.Material",
+    "$version": "A"
+  },
+  "defaultValues": {
+    "target": null,
+    "input": {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0, "$type": "UnityEngine.Color"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.SetMember",
+  "$id": "4"
+}
+```
+
+Control ports: `assign` (in), `assigned` (out). Value ports: `target`, `input` (in), `output` (out).
+
+#### Literal
+
+```json
+{
+  "type": "System.String",
+  "value": {"$content": "Hello!", "$type": "System.String"},
+  "defaultValues": {},
+  "position": {"x": 100.0, "y": 150.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Literal",
+  "$id": "3"
+}
+```
+
+Output port key: `"output"`.
+
+#### If
+
+```json
+{
+  "defaultValues": {
+    "condition": {"$content": false, "$type": "System.Boolean"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.If",
+  "$id": "5"
+}
+```
+
+#### Sequence
+
+```json
+{
+  "outputCount": 3,
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Sequence",
+  "$id": "2"
+}
+```
+
+Output port keys: `"0"`, `"1"`, `"2"`, ...
+
+#### ScalarMultiply
+
+```json
+{
+  "defaultValues": {
+    "a": {"$content": 0.0, "$type": "System.Single"},
+    "b": {"$content": 0.0, "$type": "System.Single"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.ScalarMultiply",
+  "$id": "6"
+}
+```
+
+Ports: `a`, `b` (in), `product` (out).
+
+#### ScalarSum / GenericSum
+
+```json
+{
+  "inputCount": 2,
+  "defaultValues": {
+    "0": {"$content": 0, "$type": "System.Int32"},
+    "1": {"$content": 1, "$type": "System.Int32"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.ScalarSum",
+  "$id": "7"
+}
+```
+
+Input port keys: `"0"`, `"1"` (index strings). Output: `"sum"`.
+
+#### Equal / NotEqual / Greater / Less / etc.
+
+```json
+{
+  "numeric": false,
+  "defaultValues": {},
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.Equal",
+  "$id": "8"
+}
+```
+
+Value ports: `a`, `b` (in). Output port key: `"equal"` for Equal, `"notEqual"` for NotEqual, `"comparison"` for Greater/Less/GreaterOrEqual/LessOrEqual.
+
+#### GetVariable / SetVariable
+
+```json
+{
+  "kind": "Graph",
+  "defaultValues": {
+    "name": {"$content": "counter", "$type": "System.String"}
+  },
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "...",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.GetVariable",
+  "$id": "9"
+}
+```
+
+`kind` values: `"Graph"`, `"Object"`, `"Scene"`, `"Application"`, `"Saved"`, `"Flow"`.
+
+### Member Object JSON Format
+
+```json
+{
+  "name": "MethodOrPropertyName",
+  "parameterTypes": ["System.Object"],
+  "targetType": "UnityEngine.ClassName",
+  "targetTypeName": "UnityEngine.ClassName",
+  "$version": "A"
+}
+```
+
+- `parameterTypes`: array of fully-qualified type strings for methods; `null` for properties/fields
+- `targetType` and `targetTypeName` are always identical
+- `$version` is always `"A"`
+
+**Common type strings**: `System.Object`, `System.String`, `System.Single` (float), `System.Int32` (int), `System.Boolean` (bool), `UnityEngine.Vector3`, `UnityEngine.Color`, `UnityEngine.KeyCode`, `UnityEngine.Transform`, `UnityEngine.GameObject`, `UnityEngine.Rigidbody`, `UnityEngine.Collider`, `UnityEngine.AudioSource`, `UnityEngine.AudioClip`, `UnityEngine.Animator`, `UnityEngine.Material`, `UnityEngine.Renderer`
+
+### Connection JSON Format
+
+#### ControlConnection
+
+```json
+{
+  "sourceUnit": {"$ref": "1"},
+  "sourceKey": "trigger",
+  "destinationUnit": {"$ref": "2"},
+  "destinationKey": "enter",
+  "guid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "$type": "Unity.VisualScripting.ControlConnection"
+}
+```
+
+#### ValueConnection
+
+```json
+{
+  "sourceUnit": {"$ref": "3"},
+  "sourceKey": "output",
+  "destinationUnit": {"$ref": "2"},
+  "destinationKey": "%message",
+  "guid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "$type": "Unity.VisualScripting.ValueConnection"
+}
+```
+
+- Connections do NOT have `$id` — only units have `$id`
+- ControlOutput allows only 1 outgoing connection (use `Sequence` to fan out)
+- ValueInput allows only 1 incoming connection
+
+### Graph Variables (JSON)
+
+To declare graph variables, populate `graph.variables.collection.$content`:
+
+```json
+"variables": {
+  "Kind": "Flow",
+  "collection": {
+    "$content": [
+      {"name": "health", "value": {"$content": 100, "$type": "System.Int32"}, "$version": "A"},
+      {"name": "speed", "value": {"$content": 5.5, "$type": "System.Single"}, "$version": "A"}
+    ],
+    "$version": "A"
+  },
+  "$version": "A"
+}
+```
+
+### Typed Values Table
+
+| Type | JSON Format |
+|------|-------------|
+| `string` | `{"$content": "text", "$type": "System.String"}` |
+| `int` | `{"$content": 42, "$type": "System.Int32"}` |
+| `float` | `{"$content": 3.14, "$type": "System.Single"}` |
+| `bool` | `{"$content": true, "$type": "System.Boolean"}` |
+| `Enum` | `{"$content": 32, "$type": "UnityEngine.KeyCode"}` (integer value) |
+| `Vector3` | `{"x": 1.0, "y": 2.0, "z": 3.0, "$type": "UnityEngine.Vector3"}` |
+| `Color` | `{"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0, "$type": "UnityEngine.Color"}` |
+| `null` | `null` |
+
+Structs (Vector3, Color, Quaternion) use direct field names — no `$content`. Scalars use `$content`.
+
+### Port Key Reference (JSON Context)
+
+| Unit / Port | sourceKey / destinationKey |
+|-------------|---------------------------|
+| Start/Update/FixedUpdate trigger | `"trigger"` |
+| OnTriggerEnter collider out | `"collider"` |
+| CustomEvent arguments | `"argument_0"`, `"argument_1"`, ... |
+| InvokeMember control in/out | `"enter"` / `"exit"` |
+| InvokeMember target in | `"target"` |
+| InvokeMember parameter in | `"%paramName"` (percent-prefixed) |
+| InvokeMember result out | `"result"` (non-void only) |
+| GetMember value out | `"value"` |
+| SetMember control in/out | `"assign"` / `"assigned"` |
+| SetMember value in | `"input"` |
+| SetMember value out | `"output"` |
+| Literal value out | `"output"` |
+| Sequence control in | `"enter"` |
+| Sequence control outs | `"0"`, `"1"`, `"2"`, ... |
+| If control in | `"enter"` |
+| If condition in | `"condition"` |
+| If control outs | `"ifTrue"` / `"ifFalse"` |
+| ScalarSum/GenericSum inputs | `"0"`, `"1"` |
+| ScalarSum/GenericSum output | `"sum"` |
+| ScalarMultiply inputs | `"a"`, `"b"` |
+| ScalarMultiply output | `"product"` |
+| GetVariable value out | `"value"` |
+| SetVariable control in/out | `"assign"` / `"assigned"` |
+| SetVariable value in/out | `"input"` / `"output"` |
+| Equal output | `"equal"` |
+| NotEqual output | `"notEqual"` |
+| Greater/Less/etc. output | `"comparison"` |

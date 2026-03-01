@@ -1,11 +1,11 @@
 ---
 name: unity-visual-scripting
-description: Generate Unity Visual Scripting graphs programmatically via C# editor scripts and assign them to GameObjects. Use when the user asks to create a Visual Scripting graph, Script Graph, State Graph, flow graph, node graph, or any visual scripting asset in Unity. Also use when assigning a ScriptGraphAsset or StateGraphAsset to a GameObject via ScriptMachine or StateMachine components. Triggers on keywords like "visual scripting", "script graph", "state graph", "flow graph", "ScriptMachine", "ScriptGraphAsset", "node-based", or "bolt graph".
+description: Generate Unity Visual Scripting graphs programmatically via C# editor scripts (creation) or by directly editing .asset YAML files (modification). Use when the user asks to create, modify, or edit a Visual Scripting graph, Script Graph, State Graph, flow graph, node graph, or any visual scripting asset in Unity. Also use when assigning a ScriptGraphAsset or StateGraphAsset to a GameObject via ScriptMachine or StateMachine components. Triggers on keywords like "visual scripting", "script graph", "state graph", "flow graph", "ScriptMachine", "ScriptGraphAsset", "node-based", "bolt graph", or "modify graph".
 ---
 
-# Unity Visual Scripting - Editor Script Generation
+# Unity Visual Scripting - Graph Creation & Modification
 
-Generate C# editor scripts that programmatically create Unity Visual Scripting graphs and assign them to GameObjects.
+Generate Unity Visual Scripting graphs via **C# editor scripts** (creation) or **direct YAML/JSON editing** (modification of existing graphs).
 
 **Namespace**: `Unity.VisualScripting` | **Required assemblies**: `Unity.VisualScripting.Core`, `Unity.VisualScripting.Flow`
 
@@ -90,7 +90,80 @@ public static class MyGraphAssigner
 
 For `StateMachine`, use `StateGraphAsset` and `StateMachine` instead.
 
+### Task 3: Modify an Existing Graph via YAML
+
+ScriptGraphAsset `.asset` files are YAML-wrapped JSON. For **modifying** existing graphs, directly edit the `.asset` file instead of writing a C# editor script. This is faster (no compilation wait) and avoids boilerplate.
+
+**How it works**: The `.asset` file has a YAML header and a `_data._json` field containing the entire graph as a single-line JSON string. The JSON contains a `graph.elements` array with all units and connections.
+
+#### YAML Structure Template
+
+```yaml
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e66c6366d904e98bc83428217d4fd7, type: 3}
+  m_Name: GRAPH_NAME
+  m_EditorClassIdentifier:
+  _data:
+    _json: 'JSON_CONTENT_HERE'
+    _objectReferences: []
+```
+
+- `m_Script` guid `95e66c6366d904e98bc83428217d4fd7` is constant for all ScriptGraphAssets
+- `m_Name` must match the filename without `.asset`
+- `_json` is the entire graph JSON on a **single line** inside YAML single quotes
+
+#### JSON Root Structure
+
+```json
+{
+  "graph": {
+    "variables": {"Kind":"Flow","collection":{"$content":[],"$version":"A"},"$version":"A"},
+    "controlInputDefinitions": [],
+    "controlOutputDefinitions": [],
+    "valueInputDefinitions": [],
+    "valueOutputDefinitions": [],
+    "title": null,
+    "summary": null,
+    "pan": {"x":0.0,"y":0.0},
+    "zoom": 1.0,
+    "elements": [ ...UNITS_THEN_CONNECTIONS... ],
+    "$version": "A"
+  }
+}
+```
+
+The `elements` array lists all **units first** (with sequential `$id`), then all **connections** (no `$id`).
+
+#### Modification Workflow
+
+1. **Read** the `.asset` file
+2. **Extract** the `_json` value (everything between the YAML single quotes)
+3. **Unescape** YAML single quotes (`''` → `'`)
+4. **Parse** as JSON, modify the `graph.elements` array
+5. **Re-escape** single quotes (`'` → `''`)
+6. **Write** the JSON back as a single line in the YAML template
+7. Unity Editor auto-reloads on file change
+
 ## Essential API Quick Reference
+
+### Choosing Workflow: C# vs YAML
+
+| Scenario | Use |
+|----------|-----|
+| **Create** a new graph from scratch | C# editor script (Task 1) |
+| **Assign** a graph to a GameObject | C# editor script (Task 2) |
+| **Modify** an existing `.asset` graph | YAML/JSON editing (Task 3) |
+| **Create** a new graph without C# compilation | YAML/JSON writing (Task 3) |
 
 ### Creating Units
 
@@ -134,11 +207,59 @@ graph.valueConnections.Add(new ValueConnection(literal.output, invoke.inputParam
 
 **Rules**: ControlOutput allows only 1 outgoing connection. ValueInput allows only 1 incoming connection. Use `Sequence` unit to fan out control flow.
 
+### Unit JSON Format (for YAML modification)
+
+```json
+{
+  "position": {"x": 0.0, "y": 0.0},
+  "guid": "uuid-v4-lowercase",
+  "$version": "A",
+  "$type": "Unity.VisualScripting.ClassName",
+  "$id": "N"
+}
+```
+
+Plus type-specific fields: `coroutine`, `defaultValues`, `member`, `parameterNames`, `kind`, `type`, `value`, `inputCount`, `outputCount`, etc.
+
+### Connection JSON Format (for YAML modification)
+
+```json
+{"sourceUnit":{"$ref":"1"},"sourceKey":"trigger","destinationUnit":{"$ref":"2"},"destinationKey":"enter","guid":"uuid-v4","$type":"Unity.VisualScripting.ControlConnection"}
+```
+
+```json
+{"sourceUnit":{"$ref":"3"},"sourceKey":"output","destinationUnit":{"$ref":"2"},"destinationKey":"%message","guid":"uuid-v4","$type":"Unity.VisualScripting.ValueConnection"}
+```
+
+### Member Object JSON Format (for YAML modification)
+
+```json
+{"name":"Log","parameterTypes":["System.Object"],"targetType":"UnityEngine.Debug","targetTypeName":"UnityEngine.Debug","$version":"A"}
+```
+
+- `parameterTypes`: array of fully-qualified type strings for methods, `null` for properties
+- `targetType` and `targetTypeName` are always identical
+
+### Typed Values (JSON)
+
+| Type | JSON Format |
+|------|-------------|
+| `string` | `{"$content":"text","$type":"System.String"}` |
+| `int` | `{"$content":42,"$type":"System.Int32"}` |
+| `float` | `{"$content":3.14,"$type":"System.Single"}` |
+| `bool` | `{"$content":true,"$type":"System.Boolean"}` |
+| `Enum` | `{"$content":32,"$type":"UnityEngine.KeyCode"}` (integer value) |
+| `Vector3` | `{"x":1.0,"y":2.0,"z":3.0,"$type":"UnityEngine.Vector3"}` (no `$content`) |
+| `Color` | `{"r":1.0,"g":0.0,"b":0.0,"a":1.0,"$type":"UnityEngine.Color"}` (no `$content`) |
+| `null` | `null` |
+
 ### Position Layout
 
 Set `unit.position` AFTER `graph.units.Add(unit)`. Recommended spacing: ~250px horizontal, ~150px vertical.
 
 ## Critical Rules
+
+### C# Creation Rules
 
 - Always wrap editor scripts in `#if UNITY_EDITOR` / `#endif`
 - Never use `?.` or `??` with `UnityEngine.Object` types
@@ -151,6 +272,21 @@ Set `unit.position` AFTER `graph.units.Add(unit)`. Recommended spacing: ~250px h
 - **`%paramName` convention**: `InvokeMember` parameter port keys use `"%paramName"` format (e.g., `"%x"`, `"%y"`, `"%z"` for `Rotate`). C# accessor: `inputParameters[n]`
 - **Void methods**: Void methods (e.g., `SetActive`, `Rotate`, `Play`) have no `result` port. `InvokeMember.targetOutput` is null for void instance methods — always null-check before wiring it
 - **Comparison unit output — port key ≠ C# property**: ALL `BinaryComparisonUnit` subclasses (`Equal`, `NotEqual`, `Greater`, `Less`, `GreaterOrEqual`, `LessOrEqual`) expose their output via the C# property **`comparison`**. `Equal` and `NotEqual` override the port key string to `"equal"` / `"notEqual"` for backward compat, but the C# accessor is still `comparison`. Use `equal.comparison` (NOT ~~`equal.equal`~~) — the latter causes CS1061
+
+### YAML Modification Rules
+
+- **JSON must be single-line**: The entire JSON graph goes on one line inside the `_json` YAML value — no newlines
+- **YAML single-quote escaping**: Single quotes inside JSON string values must be doubled (`'` → `''`)
+- **`$id` system**: Sequential integers as strings (`"1"`, `"2"`, `"3"`, ...) — **units only**, NOT connections
+- **`$ref` system**: Connections reference units via `{"$ref": "N"}` where N is the unit's `$id`
+- **`guid`**: Every unit AND every connection gets a unique UUID v4 (all lowercase)
+- **`$version`**: Always `"A"` on units, member objects, collection objects, and the graph root
+- **Parameter port keys**: Prefixed with `%` in both `defaultValues` keys and connection `sourceKey`/`destinationKey` (e.g., `%message`, `%xAngle`)
+- **Connections do NOT have `$id`**: Only units get `$id` fields
+- **Elements ordering**: All units first, then all connections in the `elements` array
+- **Static vs instance**: Static members have `"defaultValues": {}` (no `target`); instance members have `"target": null` in `defaultValues`
+- **Structs vs scalars in typed values**: Structs (Vector3, Color) use direct field names without `$content`; scalars (int, float, string, bool) use `$content`
+- **ScriptGraphAsset guid is constant**: `95e66c6366d904e98bc83428217d4fd7` — never changes
 
 ## Unit Verification Protocol (MANDATORY for undocumented units)
 
