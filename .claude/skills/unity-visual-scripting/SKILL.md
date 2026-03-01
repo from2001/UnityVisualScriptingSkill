@@ -20,6 +20,7 @@ Generate C# editor scripts that programmatically create Unity Visual Scripting g
 
 ```csharp
 #if UNITY_EDITOR
+using System;
 using UnityEditor;
 using UnityEngine;
 using Unity.VisualScripting;
@@ -100,6 +101,7 @@ For `StateMachine`, use `StateGraphAsset` and `StateMachine` instead.
 | SetMember | `new SetMember(new Member(type, name))` | `assign`/`assigned` (control), `input`/`output` (value) |
 | InvokeMember | `new InvokeMember(new Member(type, name, paramTypes[]))` | `enter`/`exit` (control), `inputParameters[n]`/`result` (value) |
 | Literal | `new Literal(typeof(T), value)` | `output` (ValueOutput) |
+| ScalarSum | `new ScalarSum()` | `multiInputs[0]`, `multiInputs[1]` (in), `sum` (out) — extends `MultiInputUnit<float>` |
 | ScalarMultiply | `new ScalarMultiply()` | `a`, `b` (in), `product` (out) |
 | If | `new If()` | `enter` (control in), `condition` (value in), `ifTrue`/`ifFalse` (control out) |
 | GetVariable | `new GetVariable() { kind }` (set `defaultValues["name"]` after Add) | `value` (out) |
@@ -143,7 +145,62 @@ Set `unit.position` AFTER `graph.units.Add(unit)`. Recommended spacing: ~250px h
 - Always call `AssetDatabase.SaveAssets()` after creating/modifying assets
 - For instance methods (e.g., `Transform.Rotate`), the `target` port auto-resolves to the owning GameObject's component when unconnected
 - Variable units (`GetVariable`/`SetVariable`/`IsVariableDefined`) have NO `defaultName` property — set `kind` before `graph.units.Add()`, then set `defaultValues["name"]` after Add
-- Generic math units (`GenericMultiply`, `GenericSum`, etc.) use the same output port names as scalar versions (`product`, `sum`, `difference`, `quotient`) — NOT `result`
+- `ScalarSum` and `GenericSum` extend `MultiInputUnit<T>` — their input ports are `multiInputs[0]`, `multiInputs[1]` (NOT `a`, `b`). Output is `sum`. Other binary math units (`ScalarMultiply`, `ScalarSubtract`, etc.) still use `a`/`b`
+- `InvokeMember.targetOutput` is null for void instance methods — always null-check before wiring it
+
+## Unit Verification Protocol (MANDATORY for undocumented units)
+
+For any unit type NOT listed in `api_reference.md`, verify it against the actual package source before generating code. This prevents wrong class names and port keys.
+
+### Source Location
+
+```
+Library/PackageCache/com.unity.visualscripting@*/Runtime/VisualScripting.Flow/Framework/
+```
+
+Use glob `com.unity.visualscripting@*` to handle hash changes across package updates.
+
+### Verification Steps
+
+1. **Verify class exists** — Grep for `class {ClassName}` under the Framework directory. If not found, the class doesn't exist. Common trap: UI display names differ from class names (e.g., "Add" node = `ScalarSum`, not `ScalarAdd`).
+
+2. **Read `Definition()` method** — Port keys are the first argument to `ValueInput()` / `ValueOutput()` / `ControlInput()` / `ControlOutput()` calls. Usually `nameof(prop)` or `i.ToString()` for multi-input units.
+
+3. **Check base classes** — If the class inherits from another (e.g., `ScalarSum : Sum<float> : MultiInputUnit<T>`), ALSO read the base class `Definition()` — ports are often defined there, not in the leaf class.
+
+### Directory Quick-Reference
+
+```
+Framework/
+├── Math/           — Base: Sum.cs, Multiply.cs, Subtract.cs, Divide.cs
+│   ├── Scalar/     — ScalarSum, ScalarMultiply, ScalarSubtract, ...
+│   ├── Generic/    — GenericSum, GenericMultiply, ...
+│   └── Vector*/    — Vector2Sum, Vector3Sum, ...
+├── Control/        — If, For, ForEach, While, Sequence, Once, ...
+├── Logic/          — And, Or, Negate, Equal, Greater, Less, ...
+├── Events/
+│   ├── Lifecycle/  — Start, Update, FixedUpdate, OnEnable, OnDestroy
+│   ├── Physics/    — OnCollisionEnter, OnTriggerEnter, ...
+│   └── Input/      — OnKeyDown, OnMouseDown, ...
+├── Variables/      — GetVariable, SetVariable, IsVariableDefined
+├── Codebase/       — InvokeMember, GetMember, SetMember
+├── Time/           — Timer, Cooldown, WaitForSecondsUnit, ...
+├── Nulls/          — Null, NullCheck, NullCoalesce
+├── Literal.cs
+└── This.cs
+```
+
+### Skip-Verification List (already documented)
+
+These units are fully documented in `api_reference.md` and do NOT need source verification:
+`Literal`, `If`, `For`, `ForEach`, `While`, `Sequence`, `Once`, `NullCheck`, `SelectUnit`,
+`Start`, `Update`, `FixedUpdate`, `OnTriggerEnter`, `OnCollisionEnter`, `OnKeyboardInput`, `CustomEvent`,
+`GetMember`, `SetMember`, `InvokeMember`,
+`GetVariable`, `SetVariable`, `IsVariableDefined`,
+`ScalarSum`, `ScalarMultiply`, `ScalarSubtract`, `ScalarDivide`, `ScalarModulo`,
+`GenericSum`, `GenericSubtract`, `GenericMultiply`, `GenericDivide`,
+`And`, `Or`, `Negate`, `Equal`, `NotEqual`, `Greater`, `Less`, `GreaterOrEqual`, `LessOrEqual`,
+`WaitForSecondsUnit`, `WaitUntilUnit`, `Cooldown`, `This`
 
 ## References
 
