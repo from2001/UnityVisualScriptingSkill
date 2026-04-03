@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-validate_cs.py - Validate generated C# editor scripts using Roslyn.
+validate_cs.py - Validate generated C# editor scripts using dotnet build.
 
 Usage:
     python3 validate_cs.py <path_to_cs_file> [--unity-version VERSION] [--unity-project PATH]
@@ -9,14 +9,19 @@ Outputs human-readable error list. Exits 0 (clean) or 1 (errors found).
 """
 
 import subprocess
-import json
+import re
 import sys
-import os
 from pathlib import Path
 
-TOOL_DIR = Path(__file__).parent / "RoslynValidator"
+TOOL_DIR = Path(__file__).parent
+PROJECT_DIR = TOOL_DIR / "validation_project"
 DEFAULT_UNITY_VERSION = "6000.0.68f1"
 UNITY_EDITOR_BASE = Path("/Applications/Unity/Hub/Editor")
+
+# MSBuild diagnostic pattern: file(line,col): severity code: message [project]
+DIAG_PATTERN = re.compile(
+    r"^(.+?)\((\d+),(\d+)\):\s+(error|warning)\s+(CS\d+):\s+(.+?)\s+\[.+\]$"
+)
 
 
 def find_unity_managed_dir(version):
@@ -34,63 +39,71 @@ def find_unity_managed_dir(version):
     return None
 
 
-def build_validator():
-    """Build the RoslynValidator project if needed."""
-    # Check if build output exists and is newer than source
-    exe_dir = TOOL_DIR / "bin" / "Release" / "net9.0"
-    exe = exe_dir / "RoslynValidator"
-    if not exe.exists() and not (exe_dir / "RoslynValidator.dll").exists():
-        print("Building RoslynValidator (first run)...", file=sys.stderr)
-        result = subprocess.run(
-            ["dotnet", "build", str(TOOL_DIR), "-c", "Release", "--nologo", "-v", "quiet"],
-            capture_output=True, text=True
-        )
-        if result.returncode != 0:
-            print(f"Build failed:\n{result.stderr}", file=sys.stderr)
-            return False
-        print("Build complete.", file=sys.stderr)
-    return True
+def parse_diagnostics(output):
+    """Parse MSBuild output into diagnostic dicts."""
+    diagnostics = []
+    for line in output.splitlines():
+        m = DIAG_PATTERN.match(line.strip())
+        if m:
+            diagnostics.append({
+                "severity": "Error" if m.group(4) == "error" else "Warning",
+                "code": m.group(5),
+                "message": m.group(6),
+                "line": int(m.group(2)),
+                "column": int(m.group(3)),
+            })
+    return diagnostics
 
 
 def validate(cs_path, unity_version, unity_project=None):
-    """Run Roslyn validation on a C# file."""
+    """Run dotnet build validation on a C# file."""
     managed_dir = find_unity_managed_dir(unity_version)
     if not managed_dir:
-        print(f"WARNING: Unity managed directory not found, skipping Roslyn validation",
+        print("WARNING: Unity managed directory not found, skipping C# validation",
               file=sys.stderr)
         return []
 
-    args = [
-        "dotnet", "run", "--project", str(TOOL_DIR),
-        "-c", "Release", "--no-build", "--nologo",
-        "--", cs_path,
-        "--managed", str(managed_dir),
-    ]
+    # Build properties passed to the template .csproj
+    props = {
+        "ValidationSource": str(Path(cs_path).resolve()),
+        "UnityManagedDir": str(managed_dir),
+    }
 
     if unity_project:
         script_assemblies = Path(unity_project) / "Library" / "ScriptAssemblies"
         if script_assemblies.exists():
-            args += ["--vs-assemblies", str(script_assemblies)]
+            props["VSAssembliesDir"] = str(script_assemblies)
+
+    args = [
+        "dotnet", "build", str(PROJECT_DIR),
+        "--nologo", "--no-restore", "-v", "quiet",
+        "-clp:NoSummary",
+    ]
+    for key, val in props.items():
+        args.append(f"-p:{key}={val}")
 
     result = subprocess.run(args, capture_output=True, text=True, timeout=30)
 
-    if result.returncode == 2:
-        print(f"Validator error: {result.stderr.strip()}", file=sys.stderr)
-        return []
+    # Parse diagnostics from both stdout and stderr (MSBuild may write to either)
+    all_output = result.stdout + "\n" + result.stderr
+    return parse_diagnostics(all_output)
 
-    if result.stdout.strip():
-        try:
-            return json.loads(result.stdout.strip())
-        except json.JSONDecodeError:
-            print(f"Failed to parse validator output: {result.stdout}", file=sys.stderr)
-            return []
 
-    return []
+def restore_project():
+    """Run dotnet restore once to ensure packages are available."""
+    result = subprocess.run(
+        ["dotnet", "restore", str(PROJECT_DIR), "--nologo", "-v", "quiet"],
+        capture_output=True, text=True, timeout=30
+    )
+    if result.returncode != 0:
+        print(f"Restore failed:\n{result.stderr}", file=sys.stderr)
+        return False
+    return True
 
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Roslyn C# validator for Unity scripts")
+    parser = argparse.ArgumentParser(description="C# validator for Unity scripts")
     parser.add_argument("cs_file", help="Path to C# file to validate")
     parser.add_argument("--unity-version", default=DEFAULT_UNITY_VERSION,
                         help=f"Unity editor version (default: {DEFAULT_UNITY_VERSION})")
@@ -102,9 +115,12 @@ def main():
         print(f"ERROR: File not found: {args.cs_file}", file=sys.stderr)
         sys.exit(2)
 
-    if not build_validator():
-        print("ERROR: Failed to build RoslynValidator", file=sys.stderr)
-        sys.exit(2)
+    # Ensure NuGet restore is done (first run only, near-instant after that)
+    if not (PROJECT_DIR / "obj" / "project.assets.json").exists():
+        print("Restoring project (first run)...", file=sys.stderr)
+        if not restore_project():
+            print("ERROR: Failed to restore project", file=sys.stderr)
+            sys.exit(2)
 
     diagnostics = validate(args.cs_file, args.unity_version, args.unity_project)
 
@@ -112,7 +128,7 @@ def main():
     warnings = [d for d in diagnostics if d.get("severity") == "Warning"]
 
     if not errors and not warnings:
-        print("Roslyn validation PASSED: No errors or warnings.")
+        print("C# validation PASSED: No errors or warnings.")
         sys.exit(0)
 
     for d in errors:
