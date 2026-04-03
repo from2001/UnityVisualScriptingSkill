@@ -344,7 +344,7 @@ These units are fully documented in `api_reference.md` and do NOT need source ve
 
 ## C# Code Validation (Pre-flight)
 
-Before returning generated C# code for Task 1 or Task 2, run the Roslyn-based validator to catch semantic errors.
+Before returning generated C# code for Task 1 or Task 2, run the C# compilation validator to catch semantic errors.
 
 ### When to Validate
 
@@ -372,7 +372,7 @@ python3 .claude/skills/unity-visual-scripting/tools/validate.py /tmp/vs_generate
 
 ### What Validation Catches
 
-**Roslyn Layer** (full C# compilation against Unity DLLs):
+**C# Compilation Layer** (`dotnet build` against Unity DLLs):
 
 | Code | Catches | Example |
 |------|---------|---------|
@@ -398,11 +398,11 @@ python3 .claude/skills/unity-visual-scripting/tools/validate.py /tmp/vs_generate
 
 ### First-Time Setup
 
-On first use, the validator builds automatically (~5 sec, downloads NuGet package). Subsequent runs use the cached build.
+On first use, `dotnet restore` runs automatically (near-instant). Subsequent runs use the cached restore.
 
 ### Requirements
 
-- .NET SDK 9.0+ (`dotnet` CLI available)
+- .NET SDK 8.0+ (`dotnet` CLI available)
 - Unity Editor installed at `/Applications/Unity/Hub/Editor/`
 - Python 3
 

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <DefineConstants>UNITY_EDITOR</DefineConstants>
+    <Nullable>disable</Nullable>
+    <NoWarn>CS1701;CS1702;CS1591;CS0430</NoWarn>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- ValidationSource and UnityManagedDir are passed via -p: at build time -->
+  </PropertyGroup>
+
+  <!-- Source file to validate -->
+  <ItemGroup>
+    <Compile Include="$(ValidationSource)" />
+  </ItemGroup>
+
+  <!-- Unity 6+: module DLLs in UnityEngine/ subfolder (covers both UnityEngine and UnityEditor types) -->
+  <ItemGroup Condition="Exists('$(UnityManagedDir)/UnityEngine')">
+    <Reference Include="$(UnityManagedDir)/UnityEngine/*.dll" />
+  </ItemGroup>
+
+  <!-- Fallback: facade DLLs from managed root -->
+  <ItemGroup Condition="!Exists('$(UnityManagedDir)/UnityEngine')">
+    <Reference Include="$(UnityManagedDir)/UnityEngine.dll" Condition="Exists('$(UnityManagedDir)/UnityEngine.dll')" />
+    <Reference Include="$(UnityManagedDir)/UnityEditor.dll" Condition="Exists('$(UnityManagedDir)/UnityEditor.dll')" />
+  </ItemGroup>
+
+  <!-- Visual Scripting DLLs (optional) -->
+  <ItemGroup Condition="'$(VSAssembliesDir)' != '' And Exists('$(VSAssembliesDir)')">
+    <Reference Include="$(VSAssembliesDir)/Unity.VisualScripting*.dll" />
+  </ItemGroup>
+</Project>

@@ -46,15 +46,15 @@ def main():
 
     has_errors = False
 
-    # Layer 1: Roslyn semantic validation
-    print("=== Roslyn Semantic Validation ===")
+    # Layer 1: C# compilation check
+    print("=== C# Compilation Check ===")
     rc1, out1, err1 = run_check("validate_cs.py", cs_file, extra_args)
     if out1:
         print(out1)
     if rc1 == 1:
         has_errors = True
     elif rc1 == 2:
-        print("  (Roslyn validation skipped due to setup issue)")
+        print("  (C# validation skipped due to setup issue)")
         if err1:
             print(f"  {err1}", file=sys.stderr)
 
