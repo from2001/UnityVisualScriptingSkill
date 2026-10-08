@@ -27,7 +27,9 @@ below are relative to this `SKILL.md`, not to a fixed `.claude` or working direc
   `Unity.VisualScripting`. Read the relevant portions of
   [API reference](references/api_reference.md) and
   [code patterns](references/code_patterns.md). Script and State Graphs have different
-  asset/graph types; preserve the requested type.
+  asset/graph types; preserve the requested type. A creation command should reuse an
+  existing graph or reject the occupied path: `AssetDatabase.CreateAsset` can replace
+  its contents on rerun, losing user variables and unit GUIDs.
 - **Assign a graph:** load the existing `ScriptGraphAsset`/`StateGraphAsset`, reuse or
   add the matching machine, and set its nest source and macro. Record Undo and scene
   or prefab changes as appropriate. Saving an asset does not save a scene assignment.

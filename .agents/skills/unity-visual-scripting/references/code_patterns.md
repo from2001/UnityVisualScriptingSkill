@@ -7,6 +7,7 @@ Complete working C# editor script patterns. All patterns require:
 ```csharp
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using Unity.VisualScripting;
 #endif
@@ -34,7 +35,7 @@ using Unity.VisualScripting;
 
 ## 1. Full Graph Creation + Assignment
 
-### Rotation Graph (proven working example)
+### Rotation Graph (create once, then reuse on assignment)
 
 ```csharp
 public static class CreateRotateGraph
@@ -42,72 +43,79 @@ public static class CreateRotateGraph
     [MenuItem("Tools/Create Rotate Graph")]
     public static void Create()
     {
-        var graphAsset = ScriptableObject.CreateInstance<ScriptGraphAsset>();
-        var graph = graphAsset.graph;
+        const string path = "Assets/VisualScripting/RotateCube.asset";
+        var graphAsset = AssetDatabase.LoadAssetAtPath<ScriptGraphAsset>(path);
+        if (graphAsset == null)
+        {
+            if (AssetDatabase.LoadMainAssetAtPath(path) != null)
+                throw new System.InvalidOperationException("Another asset already exists at " + path);
+            graphAsset = ScriptableObject.CreateInstance<ScriptGraphAsset>();
+            var graph = graphAsset.graph;
 
-        // On Update event
-        var onUpdate = new Update();
-        graph.units.Add(onUpdate);
-        onUpdate.position = new Vector2(-300, 0);
+            // On Update event
+            var onUpdate = new Update();
+            graph.units.Add(onUpdate);
+            onUpdate.position = new Vector2(-300, 0);
 
-        // Get Time.deltaTime
-        var getDeltaTime = new GetMember(new Member(typeof(Time), nameof(Time.deltaTime)));
-        graph.units.Add(getDeltaTime);
-        getDeltaTime.position = new Vector2(-500, 200);
+            // Get Time.deltaTime
+            var getDeltaTime = new GetMember(new Member(typeof(Time), nameof(Time.deltaTime)));
+            graph.units.Add(getDeltaTime);
+            getDeltaTime.position = new Vector2(-500, 200);
 
-        // Speed literals (degrees per second)
-        var xSpeed = new Literal(typeof(float), 10f);
-        graph.units.Add(xSpeed);
-        xSpeed.position = new Vector2(-500, 100);
+            // Speed literals (degrees per second)
+            var xSpeed = new Literal(typeof(float), 10f);
+            graph.units.Add(xSpeed);
+            xSpeed.position = new Vector2(-500, 100);
 
-        var ySpeed = new Literal(typeof(float), 20f);
-        graph.units.Add(ySpeed);
-        ySpeed.position = new Vector2(-500, 300);
+            var ySpeed = new Literal(typeof(float), 20f);
+            graph.units.Add(ySpeed);
+            ySpeed.position = new Vector2(-500, 300);
 
-        var zSpeed = new Literal(typeof(float), 5f);
-        graph.units.Add(zSpeed);
-        zSpeed.position = new Vector2(-500, 400);
+            var zSpeed = new Literal(typeof(float), 5f);
+            graph.units.Add(zSpeed);
+            zSpeed.position = new Vector2(-500, 400);
 
-        // Multiply: speed * deltaTime for each axis
-        var multiplyX = new ScalarMultiply();
-        graph.units.Add(multiplyX);
-        multiplyX.position = new Vector2(-200, 100);
+            // Multiply: speed * deltaTime for each axis
+            var multiplyX = new ScalarMultiply();
+            graph.units.Add(multiplyX);
+            multiplyX.position = new Vector2(-200, 100);
 
-        var multiplyY = new ScalarMultiply();
-        graph.units.Add(multiplyY);
-        multiplyY.position = new Vector2(-200, 300);
+            var multiplyY = new ScalarMultiply();
+            graph.units.Add(multiplyY);
+            multiplyY.position = new Vector2(-200, 300);
 
-        var multiplyZ = new ScalarMultiply();
-        graph.units.Add(multiplyZ);
-        multiplyZ.position = new Vector2(-200, 400);
+            var multiplyZ = new ScalarMultiply();
+            graph.units.Add(multiplyZ);
+            multiplyZ.position = new Vector2(-200, 400);
 
-        // Transform.Rotate(float, float, float)
-        var rotateMember = new Member(typeof(Transform), "Rotate",
-            new[] { typeof(float), typeof(float), typeof(float) });
-        var rotate = new InvokeMember(rotateMember);
-        graph.units.Add(rotate);
-        rotate.position = new Vector2(150, 0);
+            // Transform.Rotate(float, float, float)
+            var rotateMember = new Member(typeof(Transform), "Rotate",
+                new[] { typeof(float), typeof(float), typeof(float) });
+            var rotate = new InvokeMember(rotateMember);
+            graph.units.Add(rotate);
+            rotate.position = new Vector2(150, 0);
 
-        // Control: Update -> Rotate
-        graph.controlConnections.Add(new ControlConnection(onUpdate.trigger, rotate.enter));
+            // Control: Update -> Rotate
+            graph.controlConnections.Add(new ControlConnection(onUpdate.trigger, rotate.enter));
 
-        // Value: speed * deltaTime -> Rotate parameters
-        graph.valueConnections.Add(new ValueConnection(xSpeed.output, multiplyX.a));
-        graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyX.b));
-        graph.valueConnections.Add(new ValueConnection(ySpeed.output, multiplyY.a));
-        graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyY.b));
-        graph.valueConnections.Add(new ValueConnection(zSpeed.output, multiplyZ.a));
-        graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyZ.b));
-        graph.valueConnections.Add(new ValueConnection(multiplyX.product, rotate.inputParameters[0]));
-        graph.valueConnections.Add(new ValueConnection(multiplyY.product, rotate.inputParameters[1]));
-        graph.valueConnections.Add(new ValueConnection(multiplyZ.product, rotate.inputParameters[2]));
+            // Value: speed * deltaTime -> Rotate parameters
+            graph.valueConnections.Add(new ValueConnection(xSpeed.output, multiplyX.a));
+            graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyX.b));
+            graph.valueConnections.Add(new ValueConnection(ySpeed.output, multiplyY.a));
+            graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyY.b));
+            graph.valueConnections.Add(new ValueConnection(zSpeed.output, multiplyZ.a));
+            graph.valueConnections.Add(new ValueConnection(getDeltaTime.value, multiplyZ.b));
+            graph.valueConnections.Add(new ValueConnection(multiplyX.product, rotate.inputParameters[0]));
+            graph.valueConnections.Add(new ValueConnection(multiplyY.product, rotate.inputParameters[1]));
+            graph.valueConnections.Add(new ValueConnection(multiplyZ.product, rotate.inputParameters[2]));
 
-        // Save
-        if (!AssetDatabase.IsValidFolder("Assets/VisualScripting"))
-            AssetDatabase.CreateFolder("Assets", "VisualScripting");
-        AssetDatabase.CreateAsset(graphAsset, "Assets/VisualScripting/RotateCube.asset");
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
+            // Save
+            if (!AssetDatabase.IsValidFolder("Assets/VisualScripting"))
+                AssetDatabase.CreateFolder("Assets", "VisualScripting");
+            AssetDatabase.CreateAsset(graphAsset, path);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
 
         // Assign to object
         var cube = GameObject.Find("RotatingCube");
@@ -115,16 +123,23 @@ public static class CreateRotateGraph
         {
             var machine = cube.GetComponent<ScriptMachine>();
             if (machine == null)
-                machine = cube.AddComponent<ScriptMachine>();
+                machine = Undo.AddComponent<ScriptMachine>(cube);
+            Undo.RecordObject(machine, "Assign Script Graph");
             machine.nest.source = GraphSource.Macro;
             machine.nest.macro = graphAsset;
-            EditorUtility.SetDirty(cube);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(machine);
+            EditorSceneManager.MarkSceneDirty(cube.scene);
         }
     }
 }
 ```
 
 ---
+
+The command preserves existing graph edits and unit GUIDs on rerun. It marks the scene
+assignment dirty and records Undo/prefab overrides. Persist the assignment with
+`EditorSceneManager.SaveScene(scene, intendedScenePath)` in an automated workflow, then
+reopen that scene to verify the machine still points to the graph.
 
 ## 2. Event Handling
 
@@ -592,11 +607,13 @@ public static void AssignGraph()
 
     var machine = go.GetComponent<ScriptMachine>();
     if (machine == null)
-        machine = go.AddComponent<ScriptMachine>();
+        machine = Undo.AddComponent<ScriptMachine>(go);
+    Undo.RecordObject(machine, "Assign Script Graph");
 
     machine.nest.source = GraphSource.Macro;
     machine.nest.macro = graphAsset;
-    EditorUtility.SetDirty(go);
+    PrefabUtility.RecordPrefabInstancePropertyModifications(machine);
+    EditorSceneManager.MarkSceneDirty(go.scene);
 }
 ```
 
@@ -614,11 +631,13 @@ public static void AssignToSelected()
 
     var machine = go.GetComponent<ScriptMachine>();
     if (machine == null)
-        machine = go.AddComponent<ScriptMachine>();
+        machine = Undo.AddComponent<ScriptMachine>(go);
+    Undo.RecordObject(machine, "Assign Script Graph");
 
     machine.nest.source = GraphSource.Macro;
     machine.nest.macro = graphAsset;
-    EditorUtility.SetDirty(go);
+    PrefabUtility.RecordPrefabInstancePropertyModifications(machine);
+    EditorSceneManager.MarkSceneDirty(go.scene);
     Selection.activeGameObject = go;
 }
 ```
@@ -637,21 +656,25 @@ public static void AssignStateGraph()
 
     var machine = go.GetComponent<StateMachine>();
     if (machine == null)
-        machine = go.AddComponent<StateMachine>();
+        machine = Undo.AddComponent<StateMachine>(go);
+    Undo.RecordObject(machine, "Assign State Graph");
 
     machine.nest.source = GraphSource.Macro;
     machine.nest.macro = stateAsset;
-    EditorUtility.SetDirty(go);
+    PrefabUtility.RecordPrefabInstancePropertyModifications(machine);
+    EditorSceneManager.MarkSceneDirty(go.scene);
 }
 ```
 
 ### Embed graph directly in component
 
 ```csharp
-var machine = go.AddComponent<ScriptMachine>();
+var machine = Undo.AddComponent<ScriptMachine>(go);
+Undo.RecordObject(machine, "Assign Script Graph");
 machine.nest.source = GraphSource.Embed;
 machine.nest.embed = FlowGraph.WithStartUpdate();
-EditorUtility.SetDirty(go);
+PrefabUtility.RecordPrefabInstancePropertyModifications(machine);
+EditorSceneManager.MarkSceneDirty(go.scene);
 ```
 
 ---

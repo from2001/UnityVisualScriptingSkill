@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-09",
+  "environment": {
+    "unity": "6000.0.70f1",
+    "platform": "macOS Editor",
+    "graphicsApi": "Metal",
+    "gpu": "Apple M3 Max",
+    "urp": "17.0.4",
+    "shaderGraph": "17.0.4",
+    "vfxGraph": "17.0.4",
+    "visualScripting": "1.9.7",
+    "integration": "uLoop 2.1.4"
+  },
+  "editMode": {
+    "passed": true,
+    "rotationUnits": 9,
+    "valueConnections": 9,
+    "marker": 42,
+    "assetGuid": "4626f58e43f7444bf8e6ede3c242120e",
+    "rerunPreserved": true,
+    "sceneReopened": true
+  },
+  "playMode": {
+    "passed": true,
+    "angle": 149.579361,
+    "elapsed": 22.22671,
+    "counter": 3.0,
+    "transitions": [
+      "Idle",
+      "Walking",
+      "Idle"
+    ]
+  },
+  "pythonRegressionTestsPassed": 12,
+  "baseline": {
+    "rerunRetainedUserVariable": false,
+    "rerunRetainedUnitGuid": false
+  },
+  "scope": "Rotation with an implicit Transform target, three custom-event increments, bidirectional state transitions, graph identity and scene persistence. Prefab override behavior and target devices were not tested."
+}
