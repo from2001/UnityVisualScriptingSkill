@@ -40,12 +40,49 @@ The Unity sample package versions are intentionally retained. This change improv
 instructions and checks; it does not claim compatibility with every later Unity release
 or a measured model-quality improvement without separate model trials.
 
-## Local verification on 2026-10-08
+## Initial preflight verification on 2026-10-08
 
 - 12 Python regression tests passed.
 - Skill frontmatter, UI metadata, local documentation links, and standalone-folder tool execution were checked.
 - The rotation generator was compiled against the installed Unity 6000.0.70f1 / Visual Scripting 1.9.7 assemblies and passed the port checker. The UnityShaderGraphSkill sample project supplied those existing assemblies; this distribution repository has no Unity project. Graph execution and scene persistence were not tested.
 
-No Unity Editor execution, visual inspection, target-device checks, or before/after
-model-quality trials were performed in this maintenance pass. Evaluation JSON files
-are scenario definitions for those future trials.
+That initial pass did not execute the Unity Editor. The subsequent live validation
+below adds editor evidence. Evaluation JSON files remain scenario definitions, not
+independent model-quality trials.
+
+## Live Unity verification on 2026-10-08–09
+
+Tested in a separate disposable Unity 6000.0.70f1 project with Visual Scripting 1.9.7.
+The complete rotation example was extracted from the maintained Markdown and compiled
+by the actual Unity Editor.
+
+A repeat invocation previously erased a user-added graph variable and replaced unit
+GUIDs. Creation now loads and reuses the existing graph. Assignment records Undo,
+prefab overrides, and scene dirtiness instead of only setting the GameObject dirty.
+
+The regression harness confirmed:
+
+- The user variable, asset GUID, all unit GUIDs, and a single ScriptMachine survive rerun.
+- After saving, unloading the graph, and reopening the scene, the rotation graph still
+  has 9 units, 9 value connections, no invalid connections, and the correct machine binding.
+- Play Mode executes rotation through the implicit Transform target.
+- Three custom events increment a graph variable to 3 using `ScalarSum.multiInputs`.
+- Both custom-event state transitions execute: Idle → Walking → Idle. These do not
+  require enabling the legacy Input Manager.
+- 12 Python regression tests passed.
+
+[Recorded results](validation/2026-10-09.json) contain the observed values. Prefab
+instance override behavior, every reference snippet, and target devices were not tested.
+
+To repeat in a separate disposable project with Visual Scripting already installed:
+
+```sh
+python3 tests/stage_unity_smoke.py /path/to/disposable-project --run-id my-run
+```
+
+Let Unity import the scripts and generate metadata. Execute
+`VisualScriptingSkillSmoke.CreateFixtures()` in Edit Mode; this deliberately replaces
+the disposable active scene. Enter Play Mode, let a few frames pass, and execute
+`VisualScriptingSkillSmoke.CheckPlayMode()` once. It asserts rotation, the counter,
+and both state transitions. Results are written to the project's `ValidationResults/`.
+Stop Play Mode after inspection. Choose a fresh run ID for new fixtures.
