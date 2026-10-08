@@ -1,0 +1,75 @@
+{
+  "skill_name": "unity-visual-scripting",
+  "kind": "behavioral scenarios; not executed model results",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Create a Script Graph that rotates the selected object each frame and assign it.",
+      "environment": "Visual Scripting 1.9.7 with a connected editor and a selected GameObject.",
+      "should_trigger": true,
+      "expectations": [
+        "Builds frame-rate-independent behavior with valid control/value ports.",
+        "Reuses the correct machine and persists the scene assignment.",
+        "Runs relevant checks and exercises rotation in Unity."
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Change the text logged by this existing Script Graph to Player's turn.",
+      "environment": "The asset has nonempty _objectReferences, shared IDs, unknown fields and a tracked meta file.",
+      "should_trigger": true,
+      "expectations": [
+        "Preserves object references, IDs, GUIDs, metadata and unrelated fields.",
+        "Correctly escapes the apostrophe if editing serialized YAML.",
+        "Does not replace the entire YAML container with the empty-reference example."
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Create Idle and Walking states controlled by this project's input actions.",
+      "environment": "An Input System-only project with a StateMachine.",
+      "should_trigger": true,
+      "expectations": [
+        "Creates a StateGraphAsset and appropriate transitions.",
+        "Uses the configured input actions without enabling legacy Input Manager.",
+        "Tests both transition directions and machine persistence."
+      ],
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Prepare an editor generator but this machine has no Unity or .NET.",
+      "environment": "Python only.",
+      "should_trigger": true,
+      "expectations": [
+        "Delivers useful code and runs only available checks.",
+        "Labels missing compilation/runtime checks; unavailable checks do not pass."
+      ],
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Write a MonoBehaviour that moves a cube.",
+      "environment": "No Visual Scripting requested.",
+      "should_trigger": false,
+      "expectations": [
+        "Uses normal C# without creating a graph or changing packages."
+      ],
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "Wire Equal, ScalarSum, and an overloaded Debug.Log into this graph.",
+      "environment": "Target package source and an existing graph are available.",
+      "should_trigger": true,
+      "expectations": [
+        "Uses comparison, multiInputs and exact overload parameter types.",
+        "Does not wire a result from a void member.",
+        "Verifies actual port definitions when uncertain."
+      ],
+      "files": []
+    }
+  ]
+}

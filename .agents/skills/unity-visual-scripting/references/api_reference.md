@@ -1,5 +1,7 @@
 # Unity Visual Scripting - API Reference
 
+Version scope: these patterns target Visual Scripting 1.9.x. Match the installed package, preserve existing serialized references, and test behavior in the target Unity project.
+
 ## Table of Contents
 
 1. [Graph Asset Types](#1-graph-asset-types)
@@ -504,11 +506,11 @@ MonoBehaviour:
     _objectReferences: []
 ```
 
-- `m_Script` guid `95e66c6366d904e98bc83428217d4fd7` is constant for all ScriptGraphAssets
+- Preserve the existing `m_Script` reference. The GUID above is from the observed ScriptGraphAsset package; verify it against the installed package, and do not use it for StateGraphAsset.
 - `m_Name` must match the filename without `.asset`
 - `_json` value is the entire graph JSON on a **single line** inside YAML single quotes
 - Single quotes inside JSON string values must be escaped as `''` (YAML 1.1 rule)
-- `_objectReferences` is always `[]`
+- Preserve `_objectReferences` and its ordering. It is empty only for graphs without serialized Unity object references; clearing it breaks referenced objects.
 
 ### JSON Root Structure
 
@@ -538,11 +540,11 @@ The `elements` array is a flat list: all **units** first (with `$id`), then all 
 
 ### `$id` / `$ref` System
 
-- Every **unit** gets a sequential `$id` as a string: `"1"`, `"2"`, `"3"`, ...
+- The examples assign sequential `$id` strings to units. Preserve existing IDs and allocate unused IDs for additions; do not renumber a serialized object graph.
 - **Connections** reference units via `{"$ref": "N"}` where N is the unit's `$id`
-- **Connections do NOT have `$id`** — only units get `$id`
+- Connections in these examples do not declare `$id`. Preserve IDs on any objects in real files; serializers may also track nested/shared objects.
 - Every unit AND connection gets a unique `guid` (UUID v4, all lowercase)
-- `$version` is always `"A"` on units, member objects, and collection objects
+- `$version` is `"A"` in these examples. Preserve the target asset's serialized versions.
 
 ### Unit JSON Format
 

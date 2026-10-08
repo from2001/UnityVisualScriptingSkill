@@ -3,5 +3,9 @@
 nanobanana-output/*
 
 # Validation project build artifacts
-.claude/skills/unity-visual-scripting/tools/validation_project/bin/
-.claude/skills/unity-visual-scripting/tools/validation_project/obj/
+.agents/skills/unity-visual-scripting/tools/validation_project/bin/
+.agents/skills/unity-visual-scripting/tools/validation_project/obj/
+
+# Python validation caches
+__pycache__/
+*.pyc
