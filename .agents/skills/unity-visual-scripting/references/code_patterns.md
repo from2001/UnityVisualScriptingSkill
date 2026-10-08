@@ -1,5 +1,7 @@
 # Unity Visual Scripting - Code Pattern Templates
 
+Version scope: these patterns target Visual Scripting 1.9.x. Match the installed package, preserve existing serialized references, and test behavior in the target Unity project.
+
 Complete working C# editor script patterns. All patterns require:
 
 ```csharp
